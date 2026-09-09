@@ -235,6 +235,7 @@
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 
@@ -314,6 +315,8 @@
     <h3>Thêm khóa học mới</h3>
     <p>Chọn file XML "Đăng ký khóa học" (do Sở GTVT cấp) để tạo khóa học và danh sách học viên.</p>
     <input type="file" id="xmlFileInput" accept=".xml" />
+    <p style="margin-top:14px;">Ảnh chân dung (tùy chọn) — file ZIP đã convert sang JPG, tên file đúng mã học viên:</p>
+    <input type="file" id="photoZipInput" accept=".zip" />
     <div class="modal-status" id="uploadStatus"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="cancelAddCourse">Hủy</button>
@@ -742,7 +745,7 @@
 
     let avatarHtml;
     if (s.AnhThe){
-      avatarHtml = `<img src="${escapeHtml(s.AnhThe)}" alt="Ảnh chân dung" />`;
+      avatarHtml = `<img class="lazy-img" data-drive="${escapeHtml(s.AnhThe)}" alt="Ảnh chân dung" />`;
     } else if (fallbackPath){
       avatarHtml = `<img class="lazy-img" data-path="${escapeHtml(fallbackPath)}" alt="Ảnh chân dung (tạm, từ phiên gần nhất)" />`;
     } else {
@@ -840,9 +843,14 @@
 
   async function loadLazyImage(imgEl){
     const path = imgEl.dataset.path;
-    if (!path) { imgEl.style.display = 'none'; return; }
+    const driveUrl = imgEl.dataset.drive;
+    let apiUrl;
+    if (path) apiUrl = `${WEB_APP_URL}?action=image_base64&path=${encodeURIComponent(path)}`;
+    else if (driveUrl) apiUrl = `${WEB_APP_URL}?action=photo_base64&url=${encodeURIComponent(driveUrl)}`;
+    else { imgEl.style.display = 'none'; return; }
+
     try {
-      const res = await fetch(`${WEB_APP_URL}?action=image_base64&path=${encodeURIComponent(path)}`);
+      const res = await fetch(apiUrl);
       const data = await res.json();
       if (data.success){
         imgEl.src = `data:${data.mimeType};base64,${data.base64}`;
@@ -928,11 +936,39 @@
     reader.readAsArrayBuffer(fileInput.files[0]);
   });
 
-  /* ---------- Modal thêm khóa học ---------- */
+  /* ---------- Modal thêm khóa học (kèm ảnh chân dung nếu có) ---------- */
   document.getElementById('openAddCourse').addEventListener('click', () => addCourseModal.classList.add('open'));
   document.getElementById('cancelAddCourse').addEventListener('click', () => addCourseModal.classList.remove('open'));
+
+  /** Đọc file zip ảnh, upload từng ảnh JPG theo tên file = mã học viên */
+  async function uploadPhotosFromZip(zipFile, statusEl){
+    const zip = await JSZip.loadAsync(zipFile);
+    const imageFiles = Object.values(zip.files).filter(f => !f.dir && /\.(jpe?g)$/i.test(f.name));
+
+    if (!imageFiles.length){
+      statusEl.textContent += '\n(Không tìm thấy ảnh JPG nào trong file zip.)';
+      return;
+    }
+
+    let thanhCong = 0;
+    for (let i = 0; i < imageFiles.length; i++){
+      const entry = imageFiles[i];
+      const maDK = entry.name.split('/').pop().replace(/\.(jpe?g)$/i, '');
+      statusEl.textContent = `Đang tải ảnh ${i+1}/${imageFiles.length}: ${maDK}...`;
+
+      try {
+        const base64Data = await entry.async('base64');
+        const data = await callAdminApi({ action:'upload_photo', maDK, base64Data });
+        if (!data) return; // hủy nhập mật khẩu -> dừng
+        if (data.success) thanhCong++;
+      } catch (err){ /* bỏ qua, tiếp tục ảnh khác */ }
+    }
+    statusEl.textContent = `Đã cập nhật ${thanhCong}/${imageFiles.length} ảnh chân dung.`;
+  }
+
   document.getElementById('submitAddCourse').addEventListener('click', () => {
     const fileInput = document.getElementById('xmlFileInput');
+    const zipInput = document.getElementById('photoZipInput');
     const statusEl = document.getElementById('uploadStatus');
     if (!fileInput.files.length){ statusEl.textContent = 'Vui lòng chọn file XML.'; return; }
 
@@ -947,7 +983,15 @@
           statusEl.style.color = 'var(--ok)';
           statusEl.textContent = `Đã tạo khóa "${data.tenKhoaHoc}" — thêm mới ${data.soHocVienMoiThem}/${data.tongSoHocVienTrongFile} học viên.`;
           await loadCourses();
-          setTimeout(() => { addCourseModal.classList.remove('open'); statusEl.textContent=''; fileInput.value=''; }, 1800);
+
+          if (zipInput.files.length){
+            await uploadPhotosFromZip(zipInput.files[0], statusEl);
+          }
+
+          setTimeout(() => {
+            addCourseModal.classList.remove('open'); statusEl.textContent='';
+            fileInput.value=''; zipInput.value='';
+          }, 2500);
         } else {
           statusEl.style.color = 'var(--behind)'; statusEl.textContent = 'Lỗi: ' + data.error;
         }
