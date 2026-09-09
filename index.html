@@ -180,6 +180,58 @@
     .sess-item{ grid-template-columns:1fr; text-align:left; }
     .sess-item .figures{ text-align:left; }
     .admin-control{ position:static; justify-content:center; margin-top:10px; }
+
+    header{ padding:14px 16px; }
+    .logo-wrap{ width:34px; height:34px; left:10px; top:14px; transform:none; }
+    .logo-wrap img, .logo-fallback{ width:34px; height:34px; }
+    header h1{ font-size:14px; padding:0 40px; line-height:1.3; }
+    header p{ font-size:10.5px; padding:0 40px; }
+
+    main{ padding:16px 12px 50px; }
+
+    .top-bar{ flex-wrap:wrap; }
+    .search-wrap{ flex-basis:100%; }
+    .add-course-btn{ flex:1; min-width:0; font-size:12.5px; padding:11px 10px; }
+
+    .tabs{ overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
+    .tab-btn{ padding:10px 14px; font-size:13px; }
+
+    .to-toolbar{ flex-wrap:wrap; }
+    .to-toolbar input, .to-toolbar select{ flex-basis:100%; }
+    .to-toolbar .add-course-btn{ flex-basis:100%; }
+    .to-grid{ grid-template-columns:repeat(2,1fr); gap:10px; }
+    .to-card{ padding:14px 10px; }
+    .to-card .name{ font-size:13.5px; }
+    .to-card .count{ font-size:20px; }
+
+    .hv-picker{ flex-direction:column; }
+    .hv-picker select, #hvStudentWrap{ width:100%; flex-basis:100%; }
+
+    .hv-card{ padding:14px; }
+    .hv-head-left{ width:100%; }
+    .hv-head > span.status-pill{ align-self:flex-start; }
+
+    /* Bảng "Theo Tổ" -> chuyển thành danh sách thẻ xếp dọc, dễ đọc trên điện thoại */
+    .table-wrap{ border:none; background:none; overflow-x:visible; }
+    table{ min-width:0; }
+    thead{ display:none; }
+    tbody tr{
+      display:block; background:var(--surface); border:1px solid var(--line);
+      border-radius:8px; margin-bottom:12px; padding:4px 14px;
+    }
+    tbody td{
+      display:flex; justify-content:space-between; align-items:center; gap:10px;
+      border-bottom:1px dashed var(--line); padding:9px 0; font-size:13px;
+    }
+    tbody tr td:last-child{ border-bottom:none; }
+    tbody td::before{
+      content: attr(data-label); font-size:11px; font-weight:600; color:var(--ink-soft); flex-shrink:0;
+    }
+    tbody td input{ flex:1; text-align:right; max-width:60%; }
+    tbody td.yeucau-text{ flex-direction:column; align-items:flex-start; gap:4px; }
+    tbody td.yeucau-text::before{ margin-bottom:2px; }
+
+    .modal{ padding:20px 16px; }
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -575,17 +627,17 @@
 
       return `
         <tr>
-          <td><input class="to-input" value="${escapeHtml(s.To || '')}" data-madk="${s.MaDK}" data-field="to" placeholder="Tổ" /></td>
-          <td class="num">${(s.MaDK||'').split('-').pop()}</td>
-          <td>${escapeHtml(s.HoTen || '')}</td>
-          <td class="num">${fmtHours(s.TongThoiGian)}</td>
-          <td class="num">${s.TongQuangDuong.toFixed(2)} km</td>
-          <td class="num">${fmtHours(s.ConThieuGioPhut*60)}</td>
-          <td class="num">${s.ConThieuKm.toFixed(2)} km</td>
-          <td class="num">${fmtHours(s.GioDem)}</td>
-          <td><span class="status-pill ${s.DuDieuKien?'ok':'pending'}">${s.DuDieuKien?'Đã hoàn thành':'Chưa hoàn thành'}</span></td>
-          <td class="yeucau-text">${yeuCauList.join('<br>') || '—'}</td>
-          <td><input class="note-input" value="${escapeHtml(s.DiaDiem || '')}" data-madk="${s.MaDK}" data-field="diaDiem" placeholder="Địa điểm" /></td>
+          <td data-label="Tổ"><input class="to-input" value="${escapeHtml(s.To || '')}" data-madk="${s.MaDK}" data-field="to" placeholder="Tổ" /></td>
+          <td class="num" data-label="Mã HV">${(s.MaDK||'').split('-').pop()}</td>
+          <td data-label="Họ tên"><b>${escapeHtml(s.HoTen || '')}</b></td>
+          <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
+          <td class="num" data-label="Quãng đường">${s.TongQuangDuong.toFixed(2)} km</td>
+          <td class="num" data-label="Còn thiếu giờ">${fmtHours(s.ConThieuGioPhut*60)}</td>
+          <td class="num" data-label="Còn thiếu km">${s.ConThieuKm.toFixed(2)} km</td>
+          <td class="num" data-label="Giờ đêm">${fmtHours(s.GioDem)}</td>
+          <td data-label="DAT tích lũy"><span class="status-pill ${s.DuDieuKien?'ok':'pending'}">${s.DuDieuKien?'Đã hoàn thành':'Chưa hoàn thành'}</span></td>
+          <td class="yeucau-text" data-label="Yêu cầu">${yeuCauList.join('<br>') || '—'}</td>
+          <td data-label="Địa điểm"><input class="note-input" value="${escapeHtml(s.DiaDiem || '')}" data-madk="${s.MaDK}" data-field="diaDiem" placeholder="Địa điểm" /></td>
         </tr>
       `;
     }).join('');
@@ -634,13 +686,11 @@
     return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
   }
 
-  hvStudentInput.addEventListener('input', () => {
+  function renderHvSuggestions(){
     const q = normalizeVN(hvStudentInput.value.trim());
-    if (!q){ hvStudentDropdown.classList.remove('open'); return; }
-
-    const matches = currentHvStudents
-      .filter(s => normalizeVN(s.HoTen).includes(q) || (s.MaDK || '').toLowerCase().includes(q))
-      .slice(0, 8);
+    const matches = q
+      ? currentHvStudents.filter(s => normalizeVN(s.HoTen).includes(q) || (s.MaDK || '').toLowerCase().includes(q))
+      : currentHvStudents; // ô trống -> hiện toàn bộ danh sách (cuộn được)
 
     if (!matches.length){
       hvStudentDropdown.innerHTML = `<div style="color:var(--ink-soft);cursor:default;">Không tìm thấy học viên nào</div>`;
@@ -648,7 +698,7 @@
       hvStudentDropdown.innerHTML = matches.map(s => `
         <div data-madk="${s.MaDK}">
           ${escapeHtml(s.HoTen || '(chưa rõ tên)')}
-          <span class="num" style="color:#8a938d;font-size:11px;"> · ${s.MaDK}</span>
+          <span class="num" style="color:#8a938d;font-size:11px;"> · ${escapeHtml(s.NgaySinh || '—')}</span>
         </div>
       `).join('');
       hvStudentDropdown.querySelectorAll('div[data-madk]').forEach(div => {
@@ -661,9 +711,10 @@
       });
     }
     hvStudentDropdown.classList.add('open');
-  });
+  }
 
-  hvStudentInput.addEventListener('focus', () => { if (hvStudentDropdown.innerHTML) hvStudentDropdown.classList.add('open'); });
+  hvStudentInput.addEventListener('input', renderHvSuggestions);
+  hvStudentInput.addEventListener('focus', () => { if (currentHvStudents.length) renderHvSuggestions(); });
   document.addEventListener('click', (e) => { if (!e.target.closest('#hvStudentWrap')) hvStudentDropdown.classList.remove('open'); });
 
   async function performHvSearch(maDK){
