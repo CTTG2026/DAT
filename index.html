@@ -397,9 +397,28 @@
   });
 
   /* ---------- Tìm khóa học ---------- */
+  /** Tách "B.01 - K58" -> { hang: "B01", soK: 58 } để sắp xếp đúng thứ tự hạng rồi tới số khóa */
+  function parseCourseLabel(ten){
+    const parts = String(ten || '').split('-');
+    const hang = (parts[0] || '').trim().toUpperCase().replace(/\./g, '').replace(/\s+/g, '');
+    const kMatch = (parts[1] || '').match(/(\d+)/);
+    return { hang, soK: kMatch ? parseInt(kMatch[1], 10) : 999999 };
+  }
+
+  function sortCourses(list){
+    const HANG_ORDER = { 'B01': 0, 'B': 1, 'C1': 2 };
+    return list.slice().sort((a, b) => {
+      const pa = parseCourseLabel(a.TenKhoaHoc);
+      const pb = parseCourseLabel(b.TenKhoaHoc);
+      const oa = HANG_ORDER[pa.hang] !== undefined ? HANG_ORDER[pa.hang] : 99;
+      const ob = HANG_ORDER[pb.hang] !== undefined ? HANG_ORDER[pb.hang] : 99;
+      return oa !== ob ? oa - ob : pa.soK - pb.soK;
+    });
+  }
+
   async function loadCourses(){
     const res = await fetch(`${WEB_APP_URL}?action=courses`);
-    allCourses = await res.json();
+    allCourses = sortCourses(await res.json());
     renderCourseDropdown(allCourses);
     hvCourseSelect.innerHTML = '<option value="">-- Chọn khóa học --</option>' +
       allCourses.map(c => `<option value="${c.MaKhoaHoc}">${escapeHtml(c.TenKhoaHoc)}</option>`).join('');
