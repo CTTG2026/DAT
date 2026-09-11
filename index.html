@@ -98,21 +98,22 @@
   .to-dates input{ font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:4px; width:120px; }
 
   .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
-  table{ width:100%; border-collapse:collapse; min-width:820px; }
+  table{ width:100%; border-collapse:collapse; min-width:900px; }
   thead th{
-    text-align:left; font-size:11.5px; font-weight:700; color:var(--ink-soft);
-    padding:10px 10px; border-bottom:1px solid var(--line); white-space:nowrap;
+    text-align:left; font-size:11px; font-weight:700; color:var(--ink-soft);
+    padding:7px 6px; border-bottom:1px solid var(--line); white-space:nowrap;
   }
-  tbody td{ padding:11px 10px; font-size:13.5px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  tbody td{ padding:5px 6px; font-size:12.5px; border-bottom:1px solid var(--line); vertical-align:middle; line-height:1.3; }
   tbody tr:last-child td{ border-bottom:none; }
-  tbody tr:hover{ background:#FAFBF9; }
+  tbody tr:hover{ filter:brightness(0.97); }
   tbody tr.row-complete{ background:var(--ok-bg); }
   tbody tr.row-complete:hover{ background:#D5EBDA; }
   .hv-link{ color:var(--blue-deep); font-weight:700; text-decoration:none; cursor:pointer; }
   .hv-link:hover{ text-decoration:underline; }
-  .ghichu-input{ width:120px; font-size:12.5px; padding:5px 6px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; }
-  .yeucau-cell{ font-size:12px; }
-  .yeucau-cell.thieu{ color:var(--behind); line-height:1.5; }
+  .ghichu-input{ width:220px; font-size:12px; padding:5px 7px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; }
+  .doito-select{ font-size:11.5px; padding:4px 5px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; max-width:130px; }
+  .yeucau-cell{ font-size:10.5px; white-space:nowrap; }
+  .yeucau-cell.thieu{ color:var(--behind); }
   .yeucau-cell.du{ color:var(--ok); font-weight:700; }
 
   .hv-picker{ display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
@@ -274,7 +275,7 @@
         <table>
           <thead>
             <tr>
-              <th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Thời gian</th><th>Quãng đường</th>
+              <th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Tổ</th><th>Thời gian</th><th>Quãng đường</th>
               <th>Giờ đêm</th><th>Giờ tự động</th><th>Yêu cầu</th><th>Ghi chú</th>
             </tr>
           </thead>
@@ -498,7 +499,6 @@
       <div class="to-card" data-tento="${escapeHtml(t.TenTo)}" style="background:${t.Color || '#EEE'};">
         <div class="name">${escapeHtml(t.TenTo)}</div>
         <div class="count num">${t.SoLuongHocVien}</div>
-        ${(t.NgayBatDau || t.NgayKetThuc) ? `<div class="dates">${escapeHtml(t.NgayBatDau||'?')} → ${escapeHtml(t.NgayKetThuc||'?')}</div>` : ''}
       </div>
     `).join('') || '<div class="empty-state">Khóa này chưa có Tổ nào.</div>';
     grid.querySelectorAll('.to-card').forEach(card => {
@@ -507,6 +507,8 @@
   }
   document.getElementById('backToKhoaView').addEventListener('click', () => showToView('khoa'));
   document.getElementById('backToGrid').addEventListener('click', () => openKhoaTongGrid(currentKhoaTong));
+
+  let currentToOptions = []; // danh sách Tổ cùng Khóa tổng, dùng cho dropdown "chuyển tổ"
 
   async function openToDetail(tenTo){
     currentTenTo = tenTo;
@@ -520,31 +522,62 @@
     ]);
     const info = await infoRes.json();
     const students = await studentsRes.json();
-    renderToDetailHead(info);
+    if (info) currentKhoaTong = info.KhoaTong || currentKhoaTong;
+
+    // Lấy danh sách Tổ khác trong cùng Khóa tổng để làm dropdown chuyển tổ
+    const toListRes = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(currentKhoaTong)}`);
+    currentToOptions = await toListRes.json();
+
+    renderToDetailHead(info, students);
     renderToDetailTable(students);
   }
 
-  function renderToDetailHead(info){
+  /** Màu nền phân biệt học viên theo từng Khóa con (K69, K70...) */
+  const KHOA_ROW_COLORS = ['#FFF9EC', '#EAF3FB', '#F6EEFB', '#EFFAF0'];
+  function getKhoaRowColor(khoaList, khoa){
+    if (!khoa) return '';
+    const i = khoaList.indexOf(khoa);
+    return i === -1 ? '' : KHOA_ROW_COLORS[i % KHOA_ROW_COLORS.length];
+  }
+
+  function renderToDetailHead(info, students){
     const head = document.getElementById('toDetailHead');
     if (!info){ head.innerHTML = '<div>Không tìm thấy thông tin Tổ.</div>'; return; }
+
+    // Danh sách Khóa con thực tế có trong Tổ (K69, K70...), lấy theo thứ tự xuất hiện
+    const khoaList = [...new Set(students.map(s => s.Khoa).filter(k => k))];
+    let ngayTheoKhoa = {};
+    try { ngayTheoKhoa = JSON.parse(info.NgayTheoKhoa || '{}'); } catch(e) { ngayTheoKhoa = {}; }
+
     head.innerHTML = `
       <div>
         <h3>${escapeHtml(info.TenTo)}</h3>
         <div class="khoa-tong-label">Khóa tổng: ${escapeHtml(info.KhoaTong || '')}</div>
       </div>
       <div class="to-dates">
-        <div><label>Ngày bắt đầu</label><input type="text" id="toNgayBatDau" value="${escapeHtml(info.NgayBatDau || '')}" placeholder="vd: 15/08/2026" /></div>
-        <div><label>Ngày kết thúc</label><input type="text" id="toNgayKetThuc" value="${escapeHtml(info.NgayKetThuc || '')}" placeholder="vd: 13/09/2026" /></div>
+        ${khoaList.length ? khoaList.map(k => `
+          <div><label>Bắt đầu ${escapeHtml(k)}</label><input type="text" class="to-date-input" data-khoa="${escapeHtml(k)}" data-loai="batDau" value="${escapeHtml((ngayTheoKhoa[k]&&ngayTheoKhoa[k].batDau)||'')}" placeholder="vd: 15/08/2026" /></div>
+          <div><label>Kết thúc ${escapeHtml(k)}</label><input type="text" class="to-date-input" data-khoa="${escapeHtml(k)}" data-loai="ketThuc" value="${escapeHtml((ngayTheoKhoa[k]&&ngayTheoKhoa[k].ketThuc)||'')}" placeholder="vd: 13/09/2026" /></div>
+        `).join('') : `
+          <div><label>Ngày bắt đầu</label><input type="text" class="to-date-input" data-khoa="_" data-loai="batDau" value="${escapeHtml((ngayTheoKhoa._&&ngayTheoKhoa._.batDau)||'')}" placeholder="vd: 15/08/2026" /></div>
+          <div><label>Ngày kết thúc</label><input type="text" class="to-date-input" data-khoa="_" data-loai="ketThuc" value="${escapeHtml((ngayTheoKhoa._&&ngayTheoKhoa._.ketThuc)||'')}" placeholder="vd: 13/09/2026" /></div>
+        `}
       </div>
     `;
+
     const saveDates = async () => {
-      const ngayBatDau = document.getElementById('toNgayBatDau').value;
-      const ngayKetThuc = document.getElementById('toNgayKetThuc').value;
-      const data = await callAdminApi({ action:'update_to_info', tenTo: info.TenTo, ngayBatDau, ngayKetThuc });
+      const updated = {};
+      head.querySelectorAll('.to-date-input').forEach(inp => {
+        const k = inp.dataset.khoa;
+        if (!updated[k]) updated[k] = {};
+        updated[k][inp.dataset.loai] = inp.value;
+      });
+      const data = await callAdminApi({ action:'update_to_info', tenTo: info.TenTo, ngayTheoKhoa: JSON.stringify(updated) });
       if (data && data.success === false) alert('Lỗi: ' + data.error);
     };
-    document.getElementById('toNgayBatDau').addEventListener('change', saveDates);
-    document.getElementById('toNgayKetThuc').addEventListener('change', saveDates);
+    head.querySelectorAll('.to-date-input').forEach(inp => inp.addEventListener('change', saveDates));
+
+    return khoaList;
   }
 
   function renderToDetailTable(students){
@@ -552,6 +585,7 @@
     const emptyEl = document.getElementById('toDetailEmpty');
     if (!students.length){ body.innerHTML = ''; emptyEl.style.display = 'block'; return; }
     emptyEl.style.display = 'none';
+    const khoaList = [...new Set(students.map(s => s.Khoa).filter(k => k))];
 
     body.innerHTML = students.map(s => {
       const yeuCauList = [];
@@ -560,17 +594,25 @@
       if (s.GioDem < s.DemYeuCau) yeuCauList.push('Thiếu ' + fmtHours(s.DemYeuCau - s.GioDem) + ' giờ đêm');
       if (s.TuDongYeuCau > 0 && s.GioTuDong < s.TuDongYeuCau) yeuCauList.push('Thiếu ' + fmtHours(s.TuDongYeuCau - s.GioTuDong) + ' giờ tự động');
       const hoanThanh = yeuCauList.length === 0;
+      const rowColor = hoanThanh ? '' : getKhoaRowColor(khoaList, s.Khoa);
+      const rowStyle = rowColor ? ` style="background:${rowColor};"` : '';
 
       return `
-        <tr class="${hoanThanh ? 'row-complete' : ''}">
+        <tr class="${hoanThanh ? 'row-complete' : ''}"${rowStyle}>
           <td class="num" data-label="Mã HV">${(s.MaDK||'').split('-').pop()}</td>
           <td data-label="Họ tên"><a class="hv-link" data-madk="${s.MaDK}" data-makh="${s.MaKhoaHoc||''}">${escapeHtml(s.HoTen || '')}</a></td>
           <td data-label="Khóa">${escapeHtml(s.Khoa || '—')}</td>
+          <td data-label="Tổ">
+            <select class="doito-select" data-madk="${s.MaDK}">
+              ${currentToOptions.map(t => `<option value="${escapeHtml(t.TenTo)}" ${t.TenTo===currentTenTo?'selected':''}>${escapeHtml(t.TenTo)}</option>`).join('')}
+              <option value="">— Chưa phân tổ —</option>
+            </select>
+          </td>
           <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
           <td class="num" data-label="Quãng đường">${s.TongQuangDuong.toFixed(2)} km</td>
           <td class="num" data-label="Giờ đêm">${fmtHours(s.GioDem)}</td>
           <td class="num" data-label="Giờ tự động">${s.TuDongYeuCau>0 ? fmtHours(s.GioTuDong) : '—'}</td>
-          <td class="yeucau-cell ${hoanThanh?'du':'thieu'}" data-label="Yêu cầu">${hoanThanh ? 'Hoàn thành' : yeuCauList.join('<br>')}</td>
+          <td class="yeucau-cell ${hoanThanh?'du':'thieu'}" data-label="Yêu cầu">${hoanThanh ? 'Hoàn thành' : yeuCauList.join(' · ')}</td>
           <td data-label="Ghi chú"><input class="ghichu-input" value="${escapeHtml(s.GhiChu || '')}" data-madk="${s.MaDK}" placeholder="Ghi chú" /></td>
         </tr>
       `;
@@ -590,6 +632,20 @@
       inp.addEventListener('change', async () => {
         const data = await callAdminApi({ action:'update_meta', maDK: inp.dataset.madk, ghiChu: inp.value });
         if (data && data.success === false) alert('Lỗi: ' + data.error);
+      });
+    });
+    body.querySelectorAll('.doito-select').forEach(sel => {
+      const toCuTruoc = sel.value;
+      sel.addEventListener('change', async () => {
+        const toMoi = sel.value;
+        if (toMoi === currentTenTo) return; // không đổi gì
+        const data = await callAdminApi({ action:'update_meta', maDK: sel.dataset.madk, to: toMoi });
+        if (!data || data.success === false){
+          if (data) alert('Lỗi: ' + data.error);
+          sel.value = toCuTruoc; // hủy nhập mật khẩu hoặc lỗi -> trả lại lựa chọn cũ
+          return;
+        }
+        openToDetail(currentTenTo); // tải lại danh sách (học viên vừa chuyển sẽ biến khỏi Tổ này)
       });
     });
   }
@@ -646,7 +702,8 @@
                 maDK: String(findColumnValue(r, ['ma'])).trim(),
                 hoTen: String(findColumnValue(r, ['ho ten'])).trim(),
                 subKhoa: subKhoa,
-                hang: subKhoaHangMap[subKhoa] || ''
+                hang: subKhoaHangMap[subKhoa] || '',
+                ghiChu: String(findColumnValue(r, ['ghi chu']) || '').trim()
               };
             })
             .filter(s => s.maDK && (/^\d/.test(s.maDK.replace(/[^0-9a-zA-Z]/,'')) === true || s.maDK.includes('-')));
@@ -762,7 +819,10 @@
               <div class="hv-info-line"><b>Khóa:</b>${escapeHtml(s.KhoaHoc || '—')}</div>
             </div>
           </div>
-          <span class="status-pill ${s.DuDieuKien?'ok':'pending'}" style="font-size:12.5px;padding:5px 12px;border-radius:12px;font-weight:700;${s.DuDieuKien?'background:var(--ok-bg);color:var(--ok);':'background:#FBEEDA;color:#93611C;'}">${s.DuDieuKien?'ĐỦ ĐIỀU KIỆN':'CHƯA ĐỦ ĐIỀU KIỆN'}</span>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+            <span class="status-pill ${s.DuDieuKien?'ok':'pending'}" style="font-size:12.5px;padding:5px 12px;border-radius:12px;font-weight:700;${s.DuDieuKien?'background:var(--ok-bg);color:var(--ok);':'background:#FBEEDA;color:#93611C;'}">${s.DuDieuKien?'ĐỦ ĐIỀU KIỆN':'CHƯA ĐỦ ĐIỀU KIỆN'}</span>
+            ${s.To ? `<button class="add-course-btn secondary" id="viewToBtn" style="font-size:12px;padding:8px 14px;">📋 Xem danh sách Tổ</button>` : ''}
+          </div>
         </div>
         <div class="stat-grid">
           ${statCard('Quãng đường', s.TongQuangDuong.toFixed(2)+' km', s.ConThieuKm, s.ConThieuKm.toFixed(2)+' km')}
@@ -771,10 +831,13 @@
           ${s.TuDongYeuCau>0 ? statCard('Giờ xe tự động', fmtHours(s.GioTuDong), s.ConThieuTuDongPhut, fmtHours(s.ConThieuTuDongPhut*60)) : '<div class="stat-card"><div class="n">—</div><div class="l">Không yêu cầu xe tự động</div></div>'}
         </div>
         <div class="sess-list">
-          ${sessions.length ? sessions.slice().reverse().map((sess, i) => sessionItem(sess, i+1)).join('') : '<div class="empty-state">Chưa có phiên học nào.</div>'}
+          ${sessions.length ? sessions.map((sess, i) => sessionItem(sess, sessions.length - i)).join('') : '<div class="empty-state">Chưa có phiên học nào.</div>'}
         </div>
       </div>
     `;
+
+    const viewToBtn = document.getElementById('viewToBtn');
+    if (viewToBtn) viewToBtn.addEventListener('click', () => { switchTab('to'); openToDetail(s.To); });
 
     hvResult.querySelectorAll('img.lazy-img').forEach(img => {
       loadLazyImage(img);
