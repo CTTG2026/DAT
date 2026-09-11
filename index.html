@@ -353,9 +353,9 @@
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyg9wDYk7b8mxbYi0l0jaqonc-sHUl2DouWyqRW-8C-e1FNWAgqhPBt1Y2yT1B41TOHvw/exec';
 
   let allCourses = [];
-  let cameFromTenTo = ''; // nhớ Tổ vừa xem, để hiện nút "Quay lại Tổ" ở tab Theo HV
+  let cameFromToId = ''; // nhớ Tổ vừa xem, để hiện nút "Quay lại Tổ" ở tab Theo HV
   let currentKhoaTong = '';
-  let currentTenTo = '';
+  let currentToId = '';
 
   const courseSearch = document.getElementById('courseSearch');
   const courseDropdown = document.getElementById('courseDropdown');
@@ -500,13 +500,13 @@
     const res = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
     const list = await res.json();
     grid.innerHTML = list.map(t => `
-      <div class="to-card" data-tento="${escapeHtml(t.TenTo)}" style="background:${t.Color || '#EEE'};">
+      <div class="to-card" data-toid="${escapeHtml(t.ToId)}" style="background:${t.Color || '#EEE'};">
         <div class="name">${escapeHtml(t.TenTo)}</div>
         <div class="count num">${t.SoLuongHocVien}</div>
       </div>
     `).join('') || '<div class="empty-state">Khóa này chưa có Tổ nào.</div>';
     grid.querySelectorAll('.to-card').forEach(card => {
-      card.addEventListener('click', () => openToDetail(card.dataset.tento));
+      card.addEventListener('click', () => openToDetail(card.dataset.toid));
     });
   }
   document.getElementById('backToKhoaView').addEventListener('click', () => showToView('khoa'));
@@ -527,15 +527,15 @@
 
   let currentToOptions = []; // danh sách Tổ cùng Khóa tổng, dùng cho dropdown "chuyển tổ"
 
-  async function openToDetail(tenTo){
-    currentTenTo = tenTo;
+  async function openToDetail(toId){
+    currentToId = toId;
     showToView('detail');
     document.getElementById('toDetailHead').innerHTML = '<div style="color:var(--ink-soft);">Đang tải...</div>';
     document.getElementById('toDetailBody').innerHTML = '';
 
     const [infoRes, studentsRes] = await Promise.all([
-      fetch(`${WEB_APP_URL}?action=to_info&tenTo=${encodeURIComponent(tenTo)}`),
-      fetch(`${WEB_APP_URL}?action=students_by_to&tenTo=${encodeURIComponent(tenTo)}`)
+      fetch(`${WEB_APP_URL}?action=to_info&toId=${encodeURIComponent(toId)}`),
+      fetch(`${WEB_APP_URL}?action=students_by_to&toId=${encodeURIComponent(toId)}`)
     ]);
     const info = await infoRes.json();
     const students = await studentsRes.json();
@@ -589,7 +589,7 @@
         if (!updated[k]) updated[k] = {};
         updated[k][inp.dataset.loai] = inp.value;
       });
-      const data = await callAdminApi({ action:'update_to_info', tenTo: info.TenTo, ngayTheoKhoa: JSON.stringify(updated) });
+      const data = await callAdminApi({ action:'update_to_info', toId: info.ToId, ngayTheoKhoa: JSON.stringify(updated) });
       if (data && data.success === false) alert('Lỗi: ' + data.error);
     };
     head.querySelectorAll('.to-date-input').forEach(inp => inp.addEventListener('change', saveDates));
@@ -628,7 +628,7 @@
           <td data-label="Ghi chú"><input class="ghichu-input" value="${escapeHtml(s.GhiChu || '')}" data-madk="${s.MaDK}" placeholder="Ghi chú" /></td>
           <td data-label="Tổ">
             <select class="doito-select" data-madk="${s.MaDK}">
-              ${currentToOptions.map(t => `<option value="${escapeHtml(t.TenTo)}" ${t.TenTo===currentTenTo?'selected':''}>${escapeHtml(shortenTenTo(t.TenTo))}</option>`).join('')}
+              ${currentToOptions.map(t => `<option value="${escapeHtml(t.ToId)}" ${t.ToId===currentToId?'selected':''}>${escapeHtml(shortenTenTo(t.TenTo))}</option>`).join('')}
               <option value="">— Chưa phân tổ —</option>
             </select>
           </td>
@@ -638,7 +638,7 @@
 
     body.querySelectorAll('.hv-link').forEach(a => {
       a.addEventListener('click', () => {
-        cameFromTenTo = currentTenTo;
+        cameFromToId = currentToId;
         switchTab('hv');
         hvCourseSelect.value = a.dataset.makh || '';
         hvCourseSelect.dispatchEvent(new Event('change', {bubbles:false}));
@@ -656,14 +656,14 @@
       const toCuTruoc = sel.value;
       sel.addEventListener('change', async () => {
         const toMoi = sel.value;
-        if (toMoi === currentTenTo) return; // không đổi gì
+        if (toMoi === currentToId) return; // không đổi gì
         const data = await callAdminApi({ action:'update_meta', maDK: sel.dataset.madk, to: toMoi });
         if (!data || data.success === false){
           if (data) alert('Lỗi: ' + data.error);
           sel.value = toCuTruoc; // hủy nhập mật khẩu hoặc lỗi -> trả lại lựa chọn cũ
           return;
         }
-        openToDetail(currentTenTo); // tải lại danh sách (học viên vừa chuyển sẽ biến khỏi Tổ này)
+        openToDetail(currentToId); // tải lại danh sách (học viên vừa chuyển sẽ biến khỏi Tổ này)
       });
     });
   }
@@ -784,7 +784,7 @@
           const student = currentHvStudents.find(s => s.MaDK === div.dataset.madk);
           hvStudentInput.value = student.HoTen || student.MaDK;
           hvStudentDropdown.classList.remove('open');
-          cameFromTenTo = ''; // tra cứu trực tiếp, không phải từ Tổ
+          cameFromToId = ''; // tra cứu trực tiếp, không phải từ Tổ
           performHvSearch(student.MaDK);
         });
       });
@@ -811,11 +811,11 @@
 
   function renderHvResult(s, sessions){
     const backWrap = document.getElementById('hvBackWrap');
-    backWrap.innerHTML = cameFromTenTo
-      ? `<button class="back-btn" id="backToToBtn">◀ Quay lại Tổ (${escapeHtml(cameFromTenTo)})</button>`
+    backWrap.innerHTML = cameFromToId
+      ? `<button class="back-btn" id="backToToBtn">◀ Quay lại Tổ (${escapeHtml(toIdDisplayName(cameFromToId))})</button>`
       : '';
     const backBtn = document.getElementById('backToToBtn');
-    if (backBtn) backBtn.addEventListener('click', () => { switchTab('to'); openToDetail(cameFromTenTo); });
+    if (backBtn) backBtn.addEventListener('click', () => { switchTab('to'); openToDetail(cameFromToId); });
 
     if (!s){ hvResult.innerHTML = '<div class="empty-state">Không tìm thấy dữ liệu học viên.</div>'; return; }
 
@@ -1037,6 +1037,11 @@
   function shortenTenTo(tenTo){
     const m = String(tenTo || '').match(/^(t[ổôo]\s*\d+)/i);
     return m ? m[1] : tenTo;
+  }
+  /** "Khóa tổng::Tên Tổ" -> "Tên Tổ" (ToId là khóa nội bộ, không nên hiện nguyên dạng cho người dùng) */
+  function toIdDisplayName(toId){
+    const s = String(toId || '');
+    return s.includes('::') ? s.split('::').pop() : s;
   }
   function formatDate(iso){
     if (!iso) return '—';
