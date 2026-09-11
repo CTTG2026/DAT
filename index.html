@@ -55,6 +55,11 @@
   }
   .add-course-btn:hover{ background:var(--primary-dark); }
   .add-course-btn.secondary{ background:var(--surface); color:var(--ink); border:1px solid var(--line); }
+  .icon-btn{
+    flex-shrink:0; width:44px; height:44px; border:1px solid var(--line); border-radius:5px;
+    background:var(--surface); font-size:16px; display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{ background:#F3F5F1; }
 
   .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:18px; }
   .tab-btn{
@@ -132,7 +137,7 @@
 
   .sess-list{ display:flex; flex-direction:column; gap:10px; }
   .sess-item{
-    display:grid; grid-template-columns:34px 130px 1fr auto auto; gap:14px; align-items:center;
+    display:grid; grid-template-columns:34px minmax(150px, auto) 1fr auto auto; gap:14px; align-items:center;
     padding:14px; border:1px solid var(--line); border-radius:6px; background:#FCFDFB;
   }
   .sess-item.sess-deleted{ background:var(--behind-bg); border-color:#EBC9C3; }
@@ -143,7 +148,7 @@
     display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;
   }
   .sess-item .date{ font-size:14.5px; font-weight:600; color:var(--ink-soft); line-height:1.7; }
-  .sess-item .date div{ white-space:nowrap; }
+  .sess-item .date div{ white-space:normal; }
   .sess-item .meta{ font-size:15px; }
   .sess-item .meta b{ font-size:15px; }
   .sess-item .tags{ display:flex; gap:5px; margin-top:6px; }
@@ -206,15 +211,6 @@
     .sess-item .figures{ text-align:left; }
     .sess-num{ margin-bottom:4px; }
 
-    .table-wrap{ border:none; background:none; overflow-x:visible; }
-    table{ min-width:0; }
-    thead{ display:none; }
-    tbody tr{ display:block; background:var(--surface); border:1px solid var(--line); border-radius:8px; margin-bottom:12px; padding:4px 14px; }
-    tbody td{ display:flex; justify-content:space-between; align-items:center; gap:10px; border-bottom:1px dashed var(--line); padding:9px 0; font-size:13px; }
-    tbody tr td:last-child{ border-bottom:none; }
-    tbody td::before{ content: attr(data-label); font-size:11px; font-weight:600; color:var(--ink-soft); flex-shrink:0; }
-    tbody td input{ flex:1; text-align:right; max-width:60%; }
-
     .modal{ padding:20px 16px; }
   }
 </style>
@@ -240,7 +236,7 @@
       <div class="course-dropdown" id="courseDropdown"></div>
     </div>
     <button class="add-course-btn" id="openAddCourse">+ Thêm khóa học</button>
-    <button class="add-course-btn secondary" id="openUploadPhoto">🖼 Cập nhật ảnh chân dung</button>
+    <button class="icon-btn" id="openUploadPhoto" title="Cập nhật ảnh chân dung">🖼️+</button>
   </div>
 
   <div class="tabs">
@@ -278,7 +274,7 @@
         <table>
           <thead>
             <tr>
-              <th>Mã HV</th><th>Họ tên</th><th>Thời gian</th><th>Quãng đường</th>
+              <th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Thời gian</th><th>Quãng đường</th>
               <th>Giờ đêm</th><th>Giờ tự động</th><th>Yêu cầu</th><th>Ghi chú</th>
             </tr>
           </thead>
@@ -307,10 +303,8 @@
 <div class="modal-overlay" id="addCourseModal">
   <div class="modal">
     <h3>Thêm khóa học mới</h3>
-    <p>Chọn file XML "Đăng ký khóa học" (do Sở GTVT cấp) để tạo khóa học và danh sách học viên.</p>
     <input type="file" id="xmlFileInput" accept=".xml" />
-    <p style="margin-top:14px;">Ảnh chân dung (tùy chọn) — file ZIP đã convert sang JPG, tên file đúng mã học viên:</p>
-    <input type="file" id="photoZipInput" accept=".zip" />
+    <input type="file" id="photoZipInput" accept=".zip" style="margin-top:6px;" />
     <div class="modal-status" id="uploadStatus"></div>
     <div class="modal-actions">
       <button class="btn-cancel" id="cancelAddCourse">Hủy</button>
@@ -323,7 +317,6 @@
 <div class="modal-overlay" id="uploadPhotoModal">
   <div class="modal">
     <h3>Cập nhật ảnh chân dung</h3>
-    <p>Chọn nhiều file JPG cùng lúc — mỗi file phải đặt tên đúng mã học viên, ví dụ: <b>82004-20260905-000016.jpg</b>.</p>
     <input type="file" id="photoFilesInput" accept="image/jpeg" multiple />
     <div class="modal-status" id="uploadPhotoStatus"></div>
     <div class="modal-actions">
@@ -337,7 +330,6 @@
 <div class="modal-overlay" id="importToExcelModal">
   <div class="modal">
     <h3>Thêm danh sách chia tổ</h3>
-    <p>Chọn file Excel — <b>tên file</b> = tên Khóa tổng, <b>mỗi sheet</b> trong file = 1 Tổ (tên sheet = tên Tổ). Mỗi sheet cần có cột "Mã"/"Mã hv" và "Họ tên".</p>
     <input type="file" id="toExcelFileInput" accept=".xlsx,.xls" />
     <div class="modal-status" id="importToExcelStatus"></div>
     <div class="modal-actions">
@@ -573,6 +565,7 @@
         <tr class="${hoanThanh ? 'row-complete' : ''}">
           <td class="num" data-label="Mã HV">${(s.MaDK||'').split('-').pop()}</td>
           <td data-label="Họ tên"><a class="hv-link" data-madk="${s.MaDK}" data-makh="${s.MaKhoaHoc||''}">${escapeHtml(s.HoTen || '')}</a></td>
+          <td data-label="Khóa">${escapeHtml(s.Khoa || '—')}</td>
           <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
           <td class="num" data-label="Quãng đường">${s.TongQuangDuong.toFixed(2)} km</td>
           <td class="num" data-label="Giờ đêm">${fmtHours(s.GioDem)}</td>
@@ -630,10 +623,33 @@
       try {
         const workbook = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
         const toArray = workbook.SheetNames.map(sheetName => {
-          const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval:'' });
+          const ws = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+
+          // Dò tất cả ô trong sheet tìm mẫu "C1-K69", "B-K68", "B01-K57"... để suy ra
+          // Hạng đào tạo (C1/B/B01) tương ứng với từng Khóa con (K69, K70...).
+          const rawRows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+          const subKhoaHangMap = {};
+          rawRows.forEach(row => row.forEach(cell => {
+            if (typeof cell !== 'string') return;
+            const matches = cell.match(/(B\.?01|B|C1)-K(\d+)/gi) || [];
+            matches.forEach(m => {
+              const mm = m.match(/(B\.?01|B|C1)-K(\d+)/i);
+              if (mm) subKhoaHangMap['K' + mm[2]] = mm[1].toUpperCase().replace(/\./g, '');
+            });
+          }));
+
           const students = rows
-            .map(r => ({ maDK: String(findColumnValue(r, ['ma'])).trim(), hoTen: String(findColumnValue(r, ['ho ten'])).trim() }))
-            .filter(s => s.maDK && /^\d/.test(s.maDK.replace(/[^0-9a-zA-Z]/,'')) === true || s.maDK.includes('-'));
+            .map(r => {
+              const subKhoa = String(findColumnValue(r, ['stt']) || '').trim();
+              return {
+                maDK: String(findColumnValue(r, ['ma'])).trim(),
+                hoTen: String(findColumnValue(r, ['ho ten'])).trim(),
+                subKhoa: subKhoa,
+                hang: subKhoaHangMap[subKhoa] || ''
+              };
+            })
+            .filter(s => s.maDK && (/^\d/.test(s.maDK.replace(/[^0-9a-zA-Z]/,'')) === true || s.maDK.includes('-')));
           return { tenTo: sheetName, students };
         }).filter(t => t.students.length);
 
