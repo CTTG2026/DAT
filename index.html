@@ -112,7 +112,8 @@
   .hv-link:hover{ text-decoration:underline; }
   .ghichu-input{ width:220px; font-size:12px; padding:5px 7px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; }
   .doito-select{ font-size:11.5px; padding:4px 5px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; max-width:130px; }
-  .yeucau-cell{ font-size:10.5px; white-space:nowrap; }
+  .yeucau-cell{ font-size:10.5px; line-height:1.5; white-space:normal; }
+  .ho-ten-cell{ white-space:nowrap; }
   .yeucau-cell.thieu{ color:var(--behind); }
   .yeucau-cell.du{ color:var(--ok); font-weight:700; }
 
@@ -275,8 +276,8 @@
         <table>
           <thead>
             <tr>
-              <th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Tổ</th><th>Thời gian</th><th>Quãng đường</th>
-              <th>Giờ đêm</th><th>Giờ tự động</th><th>Yêu cầu</th><th>Ghi chú</th>
+              <th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Thời gian</th><th>Quãng đường</th>
+              <th>Giờ đêm</th><th>Giờ tự động</th><th>Yêu cầu</th><th>Ghi chú</th><th>Tổ</th>
             </tr>
           </thead>
           <tbody id="toDetailBody"></tbody>
@@ -588,32 +589,33 @@
     const khoaList = [...new Set(students.map(s => s.Khoa).filter(k => k))];
 
     body.innerHTML = students.map(s => {
-      const yeuCauList = [];
-      if (s.TongThoiGian < s.GioYeuCau) yeuCauList.push('Thiếu ' + fmtHours(s.GioYeuCau - s.TongThoiGian) + ' giờ');
-      if (s.TongQuangDuong < s.KmYeuCau) yeuCauList.push('Thiếu ' + (s.KmYeuCau - s.TongQuangDuong).toFixed(2) + ' km');
-      if (s.GioDem < s.DemYeuCau) yeuCauList.push('Thiếu ' + fmtHours(s.DemYeuCau - s.GioDem) + ' giờ đêm');
-      if (s.TuDongYeuCau > 0 && s.GioTuDong < s.TuDongYeuCau) yeuCauList.push('Thiếu ' + fmtHours(s.TuDongYeuCau - s.GioTuDong) + ' giờ tự động');
-      const hoanThanh = yeuCauList.length === 0;
+      const line1 = [], line2 = [];
+      if (s.TongQuangDuong < s.KmYeuCau) line1.push('Thiếu ' + (s.KmYeuCau - s.TongQuangDuong).toFixed(2) + 'km');
+      if (s.TongThoiGian < s.GioYeuCau) line1.push('Thiếu ' + fmtHoursShort(s.GioYeuCau - s.TongThoiGian));
+      if (s.GioDem < s.DemYeuCau) line2.push('Thiếu ' + fmtHoursShort(s.DemYeuCau - s.GioDem) + ' đêm');
+      if (s.TuDongYeuCau > 0 && s.GioTuDong < s.TuDongYeuCau) line2.push('Thiếu ' + fmtHoursShort(s.TuDongYeuCau - s.GioTuDong) + ' stđ');
+      const hoanThanh = line1.length === 0 && line2.length === 0;
+      const yeuCauHtml = hoanThanh ? 'Hoàn thành' : [line1.join(' · '), line2.join(' · ')].filter(l => l).join('<br>');
       const rowColor = hoanThanh ? '' : getKhoaRowColor(khoaList, s.Khoa);
       const rowStyle = rowColor ? ` style="background:${rowColor};"` : '';
 
       return `
         <tr class="${hoanThanh ? 'row-complete' : ''}"${rowStyle}>
           <td class="num" data-label="Mã HV">${(s.MaDK||'').split('-').pop()}</td>
-          <td data-label="Họ tên"><a class="hv-link" data-madk="${s.MaDK}" data-makh="${s.MaKhoaHoc||''}">${escapeHtml(s.HoTen || '')}</a></td>
+          <td class="ho-ten-cell" data-label="Họ tên"><a class="hv-link" data-madk="${s.MaDK}" data-makh="${s.MaKhoaHoc||''}">${escapeHtml(s.HoTen || '')}</a></td>
           <td data-label="Khóa">${escapeHtml(s.Khoa || '—')}</td>
-          <td data-label="Tổ">
-            <select class="doito-select" data-madk="${s.MaDK}">
-              ${currentToOptions.map(t => `<option value="${escapeHtml(t.TenTo)}" ${t.TenTo===currentTenTo?'selected':''}>${escapeHtml(t.TenTo)}</option>`).join('')}
-              <option value="">— Chưa phân tổ —</option>
-            </select>
-          </td>
           <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
           <td class="num" data-label="Quãng đường">${s.TongQuangDuong.toFixed(2)} km</td>
           <td class="num" data-label="Giờ đêm">${fmtHours(s.GioDem)}</td>
           <td class="num" data-label="Giờ tự động">${s.TuDongYeuCau>0 ? fmtHours(s.GioTuDong) : '—'}</td>
-          <td class="yeucau-cell ${hoanThanh?'du':'thieu'}" data-label="Yêu cầu">${hoanThanh ? 'Hoàn thành' : yeuCauList.join(' · ')}</td>
+          <td class="yeucau-cell ${hoanThanh?'du':'thieu'}" data-label="Yêu cầu">${yeuCauHtml}</td>
           <td data-label="Ghi chú"><input class="ghichu-input" value="${escapeHtml(s.GhiChu || '')}" data-madk="${s.MaDK}" placeholder="Ghi chú" /></td>
+          <td data-label="Tổ">
+            <select class="doito-select" data-madk="${s.MaDK}">
+              ${currentToOptions.map(t => `<option value="${escapeHtml(t.TenTo)}" ${t.TenTo===currentTenTo?'selected':''}>${escapeHtml(shortenTenTo(t.TenTo))}</option>`).join('')}
+              <option value="">— Chưa phân tổ —</option>
+            </select>
+          </td>
         </tr>
       `;
     }).join('');
@@ -1009,6 +1011,16 @@
     seconds = Math.max(0, Math.round(Number(seconds) || 0));
     const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60);
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+  /** Dạng gọn "24h" hoặc "2.5h" — dùng cho cột Yêu cầu */
+  function fmtHoursShort(seconds){
+    const h = Math.round((Number(seconds) || 0) / 360) / 10; // làm tròn 1 chữ số thập phân
+    return (Number.isInteger(h) ? h : h.toFixed(1)) + 'h';
+  }
+  /** "Tổ 2-Thầy Kha-51497" -> "Tổ 2" (chỉ dùng để hiển thị trong dropdown, không đổi giá trị lưu) */
+  function shortenTenTo(tenTo){
+    const m = String(tenTo || '').match(/^(t[ổôo]\s*\d+)/i);
+    return m ? m[1] : tenTo;
   }
   function formatDate(iso){
     if (!iso) return '—';
