@@ -83,11 +83,18 @@
   .to-card{
     border-radius:10px; padding:20px 14px; text-align:center; cursor:pointer;
     transition:box-shadow .15s, transform .15s; border:1px solid rgba(0,0,0,0.08);
+    position:relative;
   }
   .to-card:hover{ box-shadow:0 4px 14px rgba(0,0,0,0.1); transform:translateY(-1px); }
   .to-card .name{ font-weight:700; font-size:14.5px; color:#2A2210; }
   .to-card .count{ margin-top:10px; font-size:24px; font-weight:800; color:#2A2210; }
   .to-card .dates{ margin-top:6px; font-size:10.5px; color:#5A5030; }
+  .to-card-edit{
+    position:absolute; top:6px; right:6px; width:22px; height:22px;
+    border:none; border-radius:6px; background:rgba(255,255,255,0.7); color:#2A2210;
+    font-size:12px; cursor:pointer; line-height:22px; padding:0; opacity:0.55;
+  }
+  .to-card-edit:hover{ opacity:1; background:rgba(255,255,255,0.95); }
 
   .empty-state{ padding:50px 10px; text-align:center; color:var(--ink-soft); font-size:13.5px; }
 
@@ -508,12 +515,28 @@
     const list = await res.json();
     grid.innerHTML = list.map(t => `
       <div class="to-card" data-toid="${escapeHtml(t.ToId)}" style="background:${t.Color || '#EEE'};">
+        <button type="button" class="to-card-edit" data-toid="${escapeHtml(t.ToId)}" data-tenhientai="${escapeHtml(t.TenTo)}" title="Sửa tên Tổ (Admin)">✎</button>
         <div class="name">${escapeHtml(t.TenTo)}</div>
         <div class="count num">${t.SoLuongHocVien}</div>
       </div>
     `).join('') || '<div class="empty-state">Khóa này chưa có Tổ nào.</div>';
     grid.querySelectorAll('.to-card').forEach(card => {
       card.addEventListener('click', () => openToDetail(card.dataset.toid));
+    });
+    grid.querySelectorAll('.to-card-edit').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const toId = btn.dataset.toid;
+        const tenHienTai = btn.dataset.tenhientai;
+        const tenMoi = prompt('Sửa tên Tổ (có thể gồm tên Tổ, tên giáo viên, biển số...):', tenHienTai);
+        if (tenMoi === null) return;
+        const ten = tenMoi.trim();
+        if (!ten || ten === tenHienTai) return;
+        const data = await callAdminApi({ action:'update_to_ten', toId, tenTo: ten });
+        if (!data) return;
+        if (data.success === false){ alert('Lỗi: ' + data.error); return; }
+        openKhoaTongGrid(currentKhoaTong);
+      });
     });
   }
   document.getElementById('backToKhoaView').addEventListener('click', () => showToView('khoa'));
@@ -690,6 +713,25 @@
     return '';
   }
 
+  /** Đổi 1 ô ngày từ Excel (Date, số serial, hoặc chuỗi) về dạng "dd/mm/yyyy" như UI đang dùng */
+  function formatExcelDateCell(v){
+    if (v === undefined || v === null || v === '') return '';
+    if (v instanceof Date && !isNaN(v.getTime())){
+      const dd = String(v.getDate()).padStart(2, '0');
+      const mm = String(v.getMonth() + 1).padStart(2, '0');
+      const yyyy = v.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    if (typeof v === 'number'){
+      const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = d.getUTCFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    return String(v).trim();
+  }
+
   document.getElementById('submitImportToExcel').addEventListener('click', () => {
     const fileInput = document.getElementById('toExcelFileInput');
     const statusEl = document.getElementById('importToExcelStatus');
@@ -702,7 +744,7 @@
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const workbook = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true });
         const toArray = workbook.SheetNames.map(sheetName => {
           const ws = workbook.Sheets[sheetName];
           const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
@@ -720,6 +762,27 @@
             });
           }));
 
+          // Dò ô tiêu đề "Ngày bắt đầu {Hạng}-K{số}" / "Ngày kết thúc {Hạng}-K{số}" — ngày thật
+          // nằm ở ô ngay bên dưới, cùng cột. Kết quả dùng để tự điền sẵn ngày cho từng Khóa con,
+          // admin vẫn sửa lại được bình thường sau khi nhập.
+          const ngayTheoKhoa = {};
+          rawRows.forEach((row, rIdx) => {
+            row.forEach((cell, cIdx) => {
+              if (typeof cell !== 'string') return;
+              const isBatDau = /b[ắă]t\s*đ[ầâ]u/i.test(cell);
+              const isKetThuc = /k[ếe]t\s*th[uú]c/i.test(cell);
+              if (!isBatDau && !isKetThuc) return;
+              const km = cell.match(/K\s*(\d+)/i);
+              if (!km) return;
+              const khoa = 'K' + km[1];
+              const nextRow = rawRows[rIdx + 1] || [];
+              const valStr = formatExcelDateCell(nextRow[cIdx]);
+              if (!valStr) return;
+              if (!ngayTheoKhoa[khoa]) ngayTheoKhoa[khoa] = {};
+              if (isBatDau) ngayTheoKhoa[khoa].batDau = valStr; else ngayTheoKhoa[khoa].ketThuc = valStr;
+            });
+          });
+
           const students = rows
             .map(r => {
               const subKhoa = String(findColumnValue(r, ['stt']) || '').trim();
@@ -732,7 +795,7 @@
               };
             })
             .filter(s => s.maDK && (/^\d/.test(s.maDK.replace(/[^0-9a-zA-Z]/,'')) === true || s.maDK.includes('-')));
-          return { tenTo: sheetName, students };
+          return { tenTo: sheetName, students, ngayTheoKhoa };
         }).filter(t => t.students.length);
 
         if (!toArray.length){
