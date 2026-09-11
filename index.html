@@ -98,7 +98,7 @@
   .to-dates input{ font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:4px; width:120px; }
 
   .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
-  table{ width:100%; border-collapse:collapse; min-width:900px; }
+  table{ width:100%; border-collapse:collapse; min-width:1000px; }
   thead th{
     text-align:left; font-size:11px; font-weight:700; color:var(--ink-soft);
     padding:7px 6px; border-bottom:1px solid var(--line); white-space:nowrap;
@@ -111,8 +111,8 @@
   .hv-link{ color:var(--blue-deep); font-weight:700; text-decoration:none; cursor:pointer; }
   .hv-link:hover{ text-decoration:underline; }
   .ghichu-input{ width:220px; font-size:12px; padding:5px 7px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; }
-  .doito-select{ font-size:11.5px; padding:4px 5px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; max-width:130px; }
-  .yeucau-cell{ font-size:10.5px; line-height:1.5; white-space:normal; }
+  .doito-select{ font-size:11.5px; padding:4px 3px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; width:66px; }
+  .yeucau-cell{ font-size:10.5px; line-height:1.5; white-space:normal; min-width:190px; }
   .ho-ten-cell{ white-space:nowrap; }
   .yeucau-cell.thieu{ color:var(--behind); }
   .yeucau-cell.du{ color:var(--ok); font-weight:700; }
@@ -264,7 +264,10 @@
     <!-- Bước 2: lưới các Tổ trong khóa tổng -->
     <div id="toGridView" style="display:none;">
       <button class="back-btn" id="backToKhoaView">◀ Đổi khóa khác</button>
-      <h3 id="toGridTitle" style="margin:14px 0 12px;font-size:17px;"></h3>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:14px 0 12px; flex-wrap:wrap; gap:8px;">
+        <h3 id="toGridTitle" style="margin:0;font-size:17px;"></h3>
+        <button class="add-course-btn secondary" id="deleteKhoaTongBtn" style="font-size:12px;padding:8px 14px;color:var(--behind);border-color:var(--behind);">🗑 Xóa khóa này</button>
+      </div>
       <div class="to-grid" id="toGrid"></div>
     </div>
 
@@ -508,6 +511,19 @@
   }
   document.getElementById('backToKhoaView').addEventListener('click', () => showToView('khoa'));
   document.getElementById('backToGrid').addEventListener('click', () => openKhoaTongGrid(currentKhoaTong));
+
+  document.getElementById('deleteKhoaTongBtn').addEventListener('click', async () => {
+    if (!confirm(`Xóa hẳn khóa "${currentKhoaTong}"? Toàn bộ Tổ trong khóa này sẽ bị xóa (học viên sẽ chuyển về "chưa phân tổ", không xóa thông tin học viên).`)) return;
+    const data = await callAdminApi({ action:'delete_khoa_tong', khoaTong: currentKhoaTong });
+    if (!data) return;
+    if (data.success){
+      alert(`Đã xóa ${data.soToDaXoa} tổ, ${data.soHocVienBoPhanTo} học viên được đưa về "chưa phân tổ".`);
+      await loadKhoaTongList();
+      showToView('khoa');
+    } else {
+      alert('Lỗi: ' + data.error);
+    }
+  });
 
   let currentToOptions = []; // danh sách Tổ cùng Khóa tổng, dùng cho dropdown "chuyển tổ"
 
