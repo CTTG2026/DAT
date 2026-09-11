@@ -105,9 +105,17 @@
   }
   .to-detail-head h3{ margin:0; font-size:17px; }
   .to-detail-head .khoa-tong-label{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
-  .to-dates{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .to-dates{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
   .to-dates label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
   .to-dates input{ font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:4px; width:120px; }
+  .to-date-display{ display:flex; align-items:center; gap:6px; }
+  .to-date-value{ font-size:13px; font-weight:600; color:#2A2210; }
+  .to-date-value.empty{ font-weight:400; font-style:italic; color:var(--ink-soft); }
+  .to-date-edit-btn{
+    width:20px; height:20px; border:none; border-radius:5px; background:#EEE; color:#5A5030;
+    font-size:11px; cursor:pointer; line-height:20px; padding:0; opacity:0.7;
+  }
+  .to-date-edit-btn:hover{ opacity:1; background:#DDD; }
 
   .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
   table{ width:100%; border-collapse:collapse; min-width:1000px; }
@@ -610,33 +618,72 @@
     let ngayTheoKhoa = {};
     try { ngayTheoKhoa = JSON.parse(info.NgayTheoKhoa || '{}'); } catch(e) { ngayTheoKhoa = {}; }
 
+    const khoaKeys = khoaList.length ? khoaList : ['_'];
+
+    function dateFieldHtml(khoa, loai, label){
+      const val = (ngayTheoKhoa[khoa] && ngayTheoKhoa[khoa][loai]) || '';
+      return `
+        <div class="to-date-field" data-khoa="${escapeHtml(khoa)}" data-loai="${loai}">
+          <label>${escapeHtml(label)}</label>
+          <div class="to-date-display">
+            <span class="to-date-value${val ? '' : ' empty'}">${val ? escapeHtml(val) : 'Chưa có ngày'}</span>
+            <button type="button" class="to-date-edit-btn" title="Sửa ngày">✎</button>
+          </div>
+        </div>
+      `;
+    }
+
     head.innerHTML = `
       <div>
         <h3>${escapeHtml(info.TenTo)}</h3>
         <div class="khoa-tong-label">Khóa tổng: ${escapeHtml(info.KhoaTong || '')}</div>
       </div>
       <div class="to-dates">
-        ${khoaList.length ? khoaList.map(k => `
-          <div><label>Bắt đầu ${escapeHtml(k)}</label><input type="text" class="to-date-input" data-khoa="${escapeHtml(k)}" data-loai="batDau" value="${escapeHtml((ngayTheoKhoa[k]&&ngayTheoKhoa[k].batDau)||'')}" placeholder="vd: 15/08/2026" /></div>
-          <div><label>Kết thúc ${escapeHtml(k)}</label><input type="text" class="to-date-input" data-khoa="${escapeHtml(k)}" data-loai="ketThuc" value="${escapeHtml((ngayTheoKhoa[k]&&ngayTheoKhoa[k].ketThuc)||'')}" placeholder="vd: 13/09/2026" /></div>
-        `).join('') : `
-          <div><label>Ngày bắt đầu</label><input type="text" class="to-date-input" data-khoa="_" data-loai="batDau" value="${escapeHtml((ngayTheoKhoa._&&ngayTheoKhoa._.batDau)||'')}" placeholder="vd: 15/08/2026" /></div>
-          <div><label>Ngày kết thúc</label><input type="text" class="to-date-input" data-khoa="_" data-loai="ketThuc" value="${escapeHtml((ngayTheoKhoa._&&ngayTheoKhoa._.ketThuc)||'')}" placeholder="vd: 13/09/2026" /></div>
-        `}
+        ${khoaKeys.map(k => {
+          const labelBatDau = k === '_' ? 'Ngày bắt đầu' : `Bắt đầu ${k}`;
+          const labelKetThuc = k === '_' ? 'Ngày kết thúc' : `Kết thúc ${k}`;
+          return dateFieldHtml(k, 'batDau', labelBatDau) + dateFieldHtml(k, 'ketThuc', labelKetThuc);
+        }).join('')}
       </div>
     `;
 
-    const saveDates = async () => {
-      const updated = {};
-      head.querySelectorAll('.to-date-input').forEach(inp => {
-        const k = inp.dataset.khoa;
-        if (!updated[k]) updated[k] = {};
-        updated[k][inp.dataset.loai] = inp.value;
-      });
-      const data = await callAdminApi({ action:'update_to_info', toId: info.ToId, ngayTheoKhoa: JSON.stringify(updated) });
+    async function saveOneField(khoa, loai, giaTriMoi){
+      if (!ngayTheoKhoa[khoa]) ngayTheoKhoa[khoa] = {};
+      ngayTheoKhoa[khoa][loai] = giaTriMoi;
+      const data = await callAdminApi({ action:'update_to_info', toId: info.ToId, ngayTheoKhoa: JSON.stringify(ngayTheoKhoa) });
       if (data && data.success === false) alert('Lỗi: ' + data.error);
-    };
-    head.querySelectorAll('.to-date-input').forEach(inp => inp.addEventListener('change', saveDates));
+    }
+
+    head.querySelectorAll('.to-date-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fieldEl = btn.closest('.to-date-field');
+        const khoa = fieldEl.dataset.khoa;
+        const loai = fieldEl.dataset.loai;
+        const displayEl = fieldEl.querySelector('.to-date-display');
+        const currentVal = (ngayTheoKhoa[khoa] && ngayTheoKhoa[khoa][loai]) || '';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentVal;
+        input.placeholder = 'vd: 15/08/2026';
+        displayEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const finishEdit = async (luu) => {
+          const giaTriMoi = input.value.trim();
+          if (luu && giaTriMoi !== currentVal) {
+            await saveOneField(khoa, loai, giaTriMoi);
+          }
+          openToDetail(info.ToId); // vẽ lại toàn bộ để đồng bộ hiển thị mới nhất
+        };
+        input.addEventListener('blur', () => finishEdit(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') input.blur();
+          if (e.key === 'Escape'){ input.removeEventListener('blur', finishEdit); openToDetail(info.ToId); }
+        });
+      });
+    });
 
     return khoaList;
   }
