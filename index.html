@@ -61,12 +61,16 @@
   }
   .icon-btn:hover{ background:#F3F5F1; }
 
-  .tabs{ display:flex; gap:4px; border-bottom:1px solid var(--line); margin-bottom:18px; }
+  .tabs{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; }
   .tab-btn{
-    padding:11px 18px; border:none; background:none; font-size:13.5px; font-weight:600;
-    color:var(--ink-soft); border-bottom:2px solid transparent; margin-bottom:-1px;
+    padding:22px 14px; border:none; border-radius:12px; font-size:16px; font-weight:800;
+    color:var(--ink); cursor:pointer; transition:transform .15s, box-shadow .15s, opacity .15s;
   }
-  .tab-btn.active{ color:var(--ink); border-bottom-color:var(--primary); }
+  .tab-btn[data-tab="to"]{ background:var(--primary); }
+  .tab-btn[data-tab="hv"]{ background:#BFE0F0; }
+  .tab-btn.active{ box-shadow:0 6px 16px rgba(0,0,0,0.16); transform:translateY(-2px); }
+  .tab-btn:not(.active){ opacity:0.6; }
+  .tab-btn:hover{ opacity:0.9; }
   .tab-panel{ display:none; }
   .tab-panel.active{ display:block; }
 
@@ -196,8 +200,10 @@
     .search-wrap{ flex-basis:100%; }
     .add-course-btn{ flex:1; min-width:0; font-size:12.5px; padding:11px 10px; }
 
-    .tabs{ overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; }
-    .tab-btn{ padding:10px 14px; font-size:13px; }
+    .tab-btn{ padding:16px 8px; font-size:13.5px; }
+
+    #deleteKhoaTongBtn{ width:40px; height:40px; padding:0 !important; flex-shrink:0; }
+    #deleteKhoaTongBtn .btn-text-full{ display:none; }
 
     .to-grid{ grid-template-columns:repeat(2,1fr); gap:10px; }
     .to-card{ padding:14px 10px; }
@@ -266,7 +272,7 @@
       <button class="back-btn" id="backToKhoaView">◀ Đổi khóa khác</button>
       <div style="display:flex; justify-content:space-between; align-items:center; margin:14px 0 12px; flex-wrap:wrap; gap:8px;">
         <h3 id="toGridTitle" style="margin:0;font-size:17px;"></h3>
-        <button class="add-course-btn secondary" id="deleteKhoaTongBtn" style="font-size:12px;padding:8px 14px;color:var(--behind);border-color:var(--behind);">🗑 Xóa khóa này</button>
+        <button class="add-course-btn secondary" id="deleteKhoaTongBtn" style="font-size:12px;padding:8px 14px;color:var(--behind);border-color:var(--behind);">🗑 <span class="btn-text-full">Xóa khóa này</span></button>
       </div>
       <div class="to-grid" id="toGrid"></div>
     </div>
