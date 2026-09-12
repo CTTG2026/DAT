@@ -21,8 +21,8 @@
   button{ font-family:'Inter',sans-serif; cursor:pointer; }
 
   header{ background:var(--primary); color:var(--ink); padding:18px 24px; text-align:center; position:relative; }
-  header h1{ margin:0; font-size:18px; font-weight:700; letter-spacing:0.3px; }
-  header p{ margin:4px 0 0; font-size:12.5px; color:#5C4E10; }
+  header h1{ margin:0; font-size:26px; font-weight:900; letter-spacing:0.3px; }
+  header p{ margin:6px 0 0; font-size:16px; font-weight:700; color:#5C4E10; }
   .logo-wrap{ position:absolute; top:50%; left:22px; transform:translateY(-50%); width:48px; height:48px; }
   .logo-wrap img{ width:48px; height:48px; object-fit:contain; border-radius:8px; }
   .logo-fallback{
@@ -73,6 +73,7 @@
   .tab-btn.active{ box-shadow:0 6px 16px rgba(0,0,0,0.16); transform:translateY(-2px); }
   .tab-btn:not(.active){ opacity:0.6; }
   .tab-btn:hover{ opacity:0.9; }
+  .tabs .add-course-btn{ padding:22px 14px; font-size:15px; }
   .tab-panel{ display:none; }
   .tab-panel.active{ display:block; }
 
@@ -106,7 +107,8 @@
   }
   .to-detail-head h3{ margin:0; font-size:17px; }
   .to-detail-head .khoa-tong-label{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
-  .to-dates{ display:flex; gap:14px; align-items:flex-start; flex-wrap:wrap; }
+  .to-dates{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+  .to-dates-row{ display:flex; gap:14px; flex-wrap:wrap; }
   .to-dates label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
   .to-dates input{ font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:4px; width:120px; }
   .to-date-display{ display:flex; align-items:center; gap:6px; }
@@ -126,6 +128,10 @@
   }
   tr.gv-total-row td{ font-weight:800; border-top:2px solid var(--ink); }
   tr.gv-total-row.over-limit td{ background:var(--behind-bg); color:var(--behind); }
+  table.gv-table{ min-width:0; width:100%; }
+  table.gv-table th, table.gv-table td{ padding:6px 4px; font-size:12px; }
+  table.gv-table tr.gv-total-row td{ font-size:15px; color:var(--blue-deep); }
+  table.gv-table tr.gv-total-row.over-limit td{ color:var(--behind); }
 
   .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
   table{ width:100%; border-collapse:collapse; min-width:1000px; }
@@ -207,6 +213,9 @@
   .btn-cancel{ background:#EEF0EC; color:var(--ink); }
   .btn-submit{ background:var(--primary); color:var(--ink); font-weight:700; }
   .modal-status{ font-size:12.5px; margin-top:4px; min-height:16px; white-space:pre-line; }
+  .add-course-section{ border-top:1px solid var(--line); padding-top:14px; margin-top:14px; }
+  .add-course-section:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .add-course-section-title{ font-size:13px; font-weight:700; color:var(--ink); margin-bottom:8px; }
 
   .lightbox{ position:fixed; inset:0; background:rgba(10,12,10,0.86); display:none; align-items:center; justify-content:center; z-index:70; padding:24px; }
   .lightbox.open{ display:flex; }
@@ -217,8 +226,8 @@
     header{ padding:14px 16px; }
     .logo-wrap{ width:34px; height:34px; left:10px; top:14px; transform:none; }
     .logo-wrap img, .logo-fallback{ width:34px; height:34px; }
-    header h1{ font-size:14px; padding:0 40px; line-height:1.3; }
-    header p{ font-size:10.5px; padding:0 40px; }
+    header h1{ font-size:19px; padding:0 40px; line-height:1.3; }
+    header p{ font-size:13px; padding:0 40px; }
     .admin-control{ position:static; justify-content:center; margin-top:10px; }
     main{ padding:16px 12px 50px; }
 
@@ -259,26 +268,21 @@
     <div class="logo-fallback" style="display:none;">CT</div>
   </div>
   <h1>HỆ THỐNG KIỂM TRA DAT CTTG</h1>
-  <p>Trung tâm GDNN ĐT&amp;SH Lái xe Chiến Thắng TG · Mã CSDT 82004</p>
+  <p>Trung tâm GDNN ĐT&amp;SH Lái xe Chiến Thắng TG</p>
   <div class="admin-control" id="adminControl"><button class="admin-btn" id="lockAdminBtn" style="display:none;">🔓 Khóa lại Admin</button></div>
 </header>
 
 <main>
-  <div class="top-bar">
-    <div class="search-wrap">
-      <input type="text" id="courseSearch" placeholder="Tìm khóa học (DAT)..." autocomplete="off" />
-      <div class="course-dropdown" id="courseDropdown"></div>
-    </div>
-    <button class="add-course-btn" id="openAddCourse">+ Thêm khóa học</button>
-    <button class="icon-btn" id="openUploadPhoto" title="Cập nhật ảnh chân dung">🖼️+</button>
-    <button class="icon-btn" id="openMissingPhoto" title="Danh sách học viên thiếu ảnh">📋</button>
-    <button class="icon-btn" id="openArchive" title="Xem Tổ đã lưu trữ (quá 3 tháng)">📦</button>
+  <div class="search-wrap" style="margin-bottom:16px;">
+    <input type="text" id="courseSearch" placeholder="Tìm khóa học (DAT)..." autocomplete="off" />
+    <div class="course-dropdown" id="courseDropdown"></div>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="to">Kiểm tra DAT theo Tổ</button>
     <button class="tab-btn" data-tab="hv">Kiểm tra DAT HV</button>
     <button class="tab-btn" data-tab="gv">Kiểm tra giờ GV</button>
+    <button class="add-course-btn" id="openAddCourse" style="border-radius:12px;">+ Thêm khóa học</button>
   </div>
 
   <!-- ============== TAB: THEO TỔ ============== -->
@@ -293,6 +297,7 @@
         </div>
         <button class="add-course-btn" id="openImportToExcel">+ Thêm danh sách chia tổ</button>
       </div>
+      <button class="add-course-btn secondary" id="openArchive" style="width:100%; margin-bottom:14px;">📦 Dữ liệu DAT theo tổ (quá 3 tháng)</button>
       <div class="empty-state">Gõ tên khóa để xem danh sách Tổ, hoặc bấm "+ Thêm danh sách chia tổ" để nhập khóa mới.</div>
     </div>
 
@@ -359,25 +364,29 @@
 <div class="modal-overlay" id="addCourseModal">
   <div class="modal">
     <h3>Thêm khóa học mới</h3>
-    <input type="file" id="xmlFileInput" accept=".xml" />
-    <input type="file" id="photoZipInput" accept=".zip" style="margin-top:6px;" />
-    <div class="modal-status" id="uploadStatus"></div>
-    <div class="modal-actions">
-      <button class="btn-cancel" id="cancelAddCourse">Hủy</button>
-      <button class="btn-submit" id="submitAddCourse">Tải lên</button>
-    </div>
-  </div>
-</div>
 
-<!-- Modal cập nhật ảnh chân dung -->
-<div class="modal-overlay" id="uploadPhotoModal">
-  <div class="modal">
-    <h3>Cập nhật ảnh chân dung</h3>
-    <input type="file" id="photoFilesInput" accept="image/jpeg" multiple />
-    <div class="modal-status" id="uploadPhotoStatus"></div>
+    <div class="add-course-section">
+      <div class="add-course-section-title">1. Thêm khóa học (file XML)</div>
+      <input type="file" id="xmlFileInput" accept=".xml" />
+      <input type="file" id="photoZipInput" accept=".zip" style="margin-top:6px;" />
+      <div class="modal-status" id="uploadStatus"></div>
+      <button class="btn-submit" id="submitAddCourse" style="width:100%; margin-top:8px;">Tải lên khóa học</button>
+    </div>
+
+    <div class="add-course-section">
+      <div class="add-course-section-title">2. Cập nhật ảnh chân dung (.jpg)</div>
+      <input type="file" id="photoFilesInput" accept="image/jpeg" multiple />
+      <div class="modal-status" id="uploadPhotoStatus"></div>
+      <button class="btn-submit" id="submitUploadPhoto" style="width:100%; margin-top:8px;">Tải ảnh lên</button>
+    </div>
+
+    <div class="add-course-section">
+      <div class="add-course-section-title">3. Học viên chưa có ảnh chân dung</div>
+      <button class="btn-cancel" id="openMissingPhoto" style="width:100%;">📋 Xem danh sách thiếu ảnh</button>
+    </div>
+
     <div class="modal-actions">
-      <button class="btn-cancel" id="cancelUploadPhoto">Hủy</button>
-      <button class="btn-submit" id="submitUploadPhoto">Tải lên</button>
+      <button class="btn-cancel" id="cancelAddCourse" style="width:100%;">Đóng</button>
     </div>
   </div>
 </div>
@@ -557,9 +566,9 @@
       const GIOI_HAN_GIAY = 10 * 3600; // 10 giờ
       const quaGioi = data.tongThoiGian > GIOI_HAN_GIAY;
 
-      const rowsHtml = sessions.map(s => `
+      const rowsHtml = sessions.map((s, i) => `
         <tr>
-          <td data-label="Mã HV">${escapeHtml(s.MaDK)}</td>
+          <td data-label="STT">${i + 1}</td>
           <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
           <td data-label="Biển số">${escapeHtml(s.BienSo)}</td>
           <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
@@ -572,9 +581,9 @@
       gvResult.innerHTML = `
         ${quaGioi ? `<div class="gv-warning">⚠️ Giáo viên "${escapeHtml(hoTenGV)}" đã chạy DAT quá 10 giờ trong ngày ${ngay.split('-').reverse().join('/')} (tổng ${fmtHours(data.tongThoiGian)}).</div>` : ''}
         <div class="table-wrap">
-          <table>
+          <table class="gv-table">
             <thead>
-              <tr><th>Mã HV</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
+              <tr><th>STT</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
             </thead>
             <tbody>
               ${rowsHtml}
@@ -875,7 +884,7 @@
         ${khoaKeys.map(k => {
           const labelBatDau = k === '_' ? 'Ngày bắt đầu' : `Bắt đầu ${k}`;
           const labelKetThuc = k === '_' ? 'Ngày kết thúc' : `Kết thúc ${k}`;
-          return dateFieldHtml(k, 'batDau', labelBatDau) + dateFieldHtml(k, 'ketThuc', labelKetThuc);
+          return `<div class="to-dates-row">${dateFieldHtml(k, 'batDau', labelBatDau)}${dateFieldHtml(k, 'ketThuc', labelKetThuc)}</div>`;
         }).join('')}
       </div>
     `;
@@ -1349,14 +1358,12 @@
     reader.readAsText(fileInput.files[0], 'UTF-8');
   });
 
-  /* ---------- Modal cập nhật ảnh chân dung (nhiều file cùng lúc) ---------- */
-  const uploadPhotoModal = document.getElementById('uploadPhotoModal');
-  document.getElementById('openUploadPhoto').addEventListener('click', () => uploadPhotoModal.classList.add('open'));
-  document.getElementById('cancelUploadPhoto').addEventListener('click', () => uploadPhotoModal.classList.remove('open'));
+  /* ---------- Cập nhật ảnh chân dung (nay là 1 phần trong modal "+ Thêm khóa học") ---------- */
 
   const missingPhotoModal = document.getElementById('missingPhotoModal');
   let missingPhotoData = [];
   document.getElementById('openMissingPhoto').addEventListener('click', async () => {
+    addCourseModal.classList.remove('open');
     missingPhotoModal.classList.add('open');
     const statusEl = document.getElementById('missingPhotoStatus');
     const listEl = document.getElementById('missingPhotoList');
@@ -1426,7 +1433,7 @@
     statusEl.style.color = thatBai.length ? 'var(--behind)' : 'var(--ok)';
     statusEl.innerHTML = `Đã cập nhật ${thanhCong}/${files.length} ảnh.` + (thatBai.length ? `<br>Lỗi:<br>` + thatBai.join('<br>') : '');
     if (thanhCong > 0 && currentHvMaDK) performHvSearch(currentHvMaDK);
-    if (!thatBai.length){ setTimeout(() => { uploadPhotoModal.classList.remove('open'); statusEl.textContent=''; fileInput.value=''; }, 2000); }
+    if (!thatBai.length){ setTimeout(() => { statusEl.textContent=''; fileInput.value=''; }, 2000); }
   });
 
   /* ---------- Tiện ích ---------- */
