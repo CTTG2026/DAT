@@ -69,6 +69,7 @@
   }
   .tab-btn[data-tab="to"]{ background:var(--primary); }
   .tab-btn[data-tab="hv"]{ background:#BFE0F0; }
+  .tab-btn[data-tab="gv"]{ background:#C9E8C0; }
   .tab-btn.active{ box-shadow:0 6px 16px rgba(0,0,0,0.16); transform:translateY(-2px); }
   .tab-btn:not(.active){ opacity:0.6; }
   .tab-btn:hover{ opacity:0.9; }
@@ -116,6 +117,15 @@
     font-size:11px; cursor:pointer; line-height:20px; padding:0; opacity:0.7;
   }
   .to-date-edit-btn:hover{ opacity:1; background:#DDD; }
+  .gv-picker{ display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; }
+  .gv-picker label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:4px; }
+  .gv-picker select{ font-size:14px; padding:10px 11px; border:1px solid var(--line); border-radius:5px; width:100%; background:var(--surface); }
+  .gv-warning{
+    background:var(--behind-bg); color:var(--behind); border:1px solid var(--behind);
+    border-radius:6px; padding:10px 14px; font-size:13.5px; font-weight:700; margin-bottom:12px;
+  }
+  tr.gv-total-row td{ font-weight:800; border-top:2px solid var(--ink); }
+  tr.gv-total-row.over-limit td{ background:var(--behind-bg); color:var(--behind); }
 
   .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
   table{ width:100%; border-collapse:collapse; min-width:1000px; }
@@ -262,11 +272,13 @@
     <button class="add-course-btn" id="openAddCourse">+ Thêm khóa học</button>
     <button class="icon-btn" id="openUploadPhoto" title="Cập nhật ảnh chân dung">🖼️+</button>
     <button class="icon-btn" id="openMissingPhoto" title="Danh sách học viên thiếu ảnh">📋</button>
+    <button class="icon-btn" id="openArchive" title="Xem Tổ đã lưu trữ (quá 3 tháng)">📦</button>
   </div>
 
   <div class="tabs">
     <button class="tab-btn active" data-tab="to">Kiểm tra DAT theo Tổ</button>
     <button class="tab-btn" data-tab="hv">Kiểm tra DAT HV</button>
+    <button class="tab-btn" data-tab="gv">Kiểm tra giờ GV</button>
   </div>
 
   <!-- ============== TAB: THEO TỔ ============== -->
@@ -324,6 +336,22 @@
       </div>
     </div>
     <div id="hvResult"></div>
+  </div>
+
+  <!-- ============== TAB: KIỂM TRA GIỜ GV ============== -->
+  <div class="tab-panel" id="tab-gv">
+    <div class="gv-picker">
+      <div>
+        <label>Ngày chạy DAT</label>
+        <select id="gvNgaySelect"></select>
+      </div>
+      <div style="flex:1; min-width:220px;">
+        <label>Tên giáo viên</label>
+        <select id="gvTeacherSelect"><option value="">-- Đang tải... --</option></select>
+      </div>
+      <button class="add-course-btn" id="gvSearchBtn">Tra cứu</button>
+    </div>
+    <div id="gvResult"></div>
   </div>
 </main>
 
@@ -383,6 +411,22 @@
 <div class="lightbox" id="lightbox">
   <span class="lightbox-close" id="lightboxClose">&times;</span>
   <img id="lightboxImg" src="" alt="Ảnh minh chứng" />
+</div>
+
+<!-- Modal xem Tổ đã lưu trữ (quá 3 tháng) -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal" style="max-width:640px;">
+    <h3>📦 Tổ đã lưu trữ (dữ liệu quá 3 tháng)</h3>
+    <div class="search-wrap" style="margin-bottom:10px;">
+      <input type="text" id="archiveKhoaTongInput" placeholder="Tìm khóa tổng đã lưu trữ..." autocomplete="off" />
+      <div class="course-dropdown" id="archiveKhoaTongDropdown"></div>
+    </div>
+    <div id="archiveToList"></div>
+    <div id="archiveToDetail"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="closeArchive">Đóng</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -450,6 +494,195 @@
     });
   });
   function switchTab(name){ document.querySelector(`.tab-btn[data-tab="${name}"]`).click(); }
+
+  /* ---------- Tab: Kiểm tra giờ GV ---------- */
+  const gvNgaySelect = document.getElementById('gvNgaySelect');
+  const gvTeacherSelect = document.getElementById('gvTeacherSelect');
+  const gvResult = document.getElementById('gvResult');
+
+  function isoDate(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function labelDate(d, tenGoi){
+    const s = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    return tenGoi ? `${s} (${tenGoi})` : s;
+  }
+
+  function buildGvNgayOptions(){
+    const now = new Date();
+    const opts = [];
+    for (let i = 0; i <= 2; i++){
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const tenGoi = i === 0 ? 'Hôm nay' : (i === 1 ? 'Hôm qua' : '');
+      opts.push({ value: isoDate(d), label: labelDate(d, tenGoi) });
+    }
+    gvNgaySelect.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  }
+
+  async function loadGvTeachers(){
+    gvTeacherSelect.innerHTML = '<option value="">-- Đang tải... --</option>';
+    gvResult.innerHTML = '';
+    try{
+      const res = await fetch(`${WEB_APP_URL}?action=teachers_by_date&ngay=${encodeURIComponent(gvNgaySelect.value)}`);
+      const list = await res.json();
+      if (!list.length){
+        gvTeacherSelect.innerHTML = '<option value="">-- Không có dữ liệu ngày này --</option>';
+        return;
+      }
+      gvTeacherSelect.innerHTML = '<option value="">-- Chọn giáo viên --</option>' +
+        list.map(gv => `<option value="${escapeHtml(gv)}">${escapeHtml(gv)}</option>`).join('');
+    }catch(err){
+      gvTeacherSelect.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+    }
+  }
+
+  gvNgaySelect.addEventListener('change', loadGvTeachers);
+
+  document.getElementById('gvSearchBtn').addEventListener('click', async () => {
+    const ngay = gvNgaySelect.value;
+    const hoTenGV = gvTeacherSelect.value;
+    if (!hoTenGV){ alert('Vui lòng chọn giáo viên.'); return; }
+    gvResult.innerHTML = '<div class="empty-state">Đang tra cứu...</div>';
+
+    try{
+      const res = await fetch(`${WEB_APP_URL}?action=sessions_by_teacher_date&hoTenGV=${encodeURIComponent(hoTenGV)}&ngay=${encodeURIComponent(ngay)}`);
+      const data = await res.json();
+      const sessions = data.sessions || [];
+
+      if (!sessions.length){
+        gvResult.innerHTML = '<div class="empty-state">Giáo viên này không có phiên học nào trong ngày đã chọn.</div>';
+        return;
+      }
+
+      const GIOI_HAN_GIAY = 10 * 3600; // 10 giờ
+      const quaGioi = data.tongThoiGian > GIOI_HAN_GIAY;
+
+      const rowsHtml = sessions.map(s => `
+        <tr>
+          <td data-label="Mã HV">${escapeHtml(s.MaDK)}</td>
+          <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
+          <td data-label="Biển số">${escapeHtml(s.BienSo)}</td>
+          <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
+          <td class="num" data-label="Quãng đường">${Number(s.TongQuangDuong).toFixed(2)} km</td>
+          <td data-label="Đăng nhập">${formatDateTimeVN(s.ThoiDiemDangNhap)}</td>
+          <td data-label="Đăng xuất">${formatDateTimeVN(s.ThoiDiemDangXuat)}</td>
+        </tr>
+      `).join('');
+
+      gvResult.innerHTML = `
+        ${quaGioi ? `<div class="gv-warning">⚠️ Giáo viên "${escapeHtml(hoTenGV)}" đã chạy DAT quá 10 giờ trong ngày ${ngay.split('-').reverse().join('/')} (tổng ${fmtHours(data.tongThoiGian)}).</div>` : ''}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Mã HV</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="gv-total-row${quaGioi ? ' over-limit' : ''}">
+                <td colspan="3">Tổng cộng</td>
+                <td class="num">${fmtHours(data.tongThoiGian)}</td>
+                <td class="num">${Number(data.tongQuangDuong).toFixed(2)} km</td>
+                <td colspan="2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }catch(err){
+      gvResult.innerHTML = '<div class="empty-state">Lỗi tra cứu: ' + err.message + '</div>';
+    }
+  });
+
+  function formatDateTimeVN(val){
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val || '');
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth()+1)}`;
+  }
+
+  buildGvNgayOptions();
+  loadGvTeachers();
+
+  /* ---------- Modal: Tổ đã lưu trữ ---------- */
+  const archiveModal = document.getElementById('archiveModal');
+  const archiveKhoaTongInput = document.getElementById('archiveKhoaTongInput');
+  const archiveKhoaTongDropdown = document.getElementById('archiveKhoaTongDropdown');
+  const archiveToList = document.getElementById('archiveToList');
+  const archiveToDetail = document.getElementById('archiveToDetail');
+  let allArchivedKhoaTong = [];
+
+  document.getElementById('openArchive').addEventListener('click', async () => {
+    archiveModal.classList.add('open');
+    archiveToList.innerHTML = '';
+    archiveToDetail.innerHTML = '';
+    archiveKhoaTongInput.value = '';
+    try{
+      const res = await fetch(`${WEB_APP_URL}?action=archived_khoa_tong_list`);
+      allArchivedKhoaTong = await res.json();
+    }catch(err){ allArchivedKhoaTong = []; }
+  });
+  document.getElementById('closeArchive').addEventListener('click', () => archiveModal.classList.remove('open'));
+
+  function renderArchiveKhoaTongDropdown(list){
+    archiveKhoaTongDropdown.innerHTML = list.map(k => `<div class="dropdown-item" data-khoa="${escapeHtml(k)}">${escapeHtml(k)}</div>`).join('');
+    archiveKhoaTongDropdown.style.display = list.length ? 'block' : 'none';
+    archiveKhoaTongDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', () => {
+        archiveKhoaTongInput.value = item.dataset.khoa;
+        archiveKhoaTongDropdown.style.display = 'none';
+        loadArchivedToList(item.dataset.khoa);
+      });
+    });
+  }
+  archiveKhoaTongInput.addEventListener('focus', () => renderArchiveKhoaTongDropdown(allArchivedKhoaTong));
+  archiveKhoaTongInput.addEventListener('input', () => {
+    const q = archiveKhoaTongInput.value.toLowerCase();
+    renderArchiveKhoaTongDropdown(allArchivedKhoaTong.filter(k => k.toLowerCase().includes(q)));
+  });
+
+  async function loadArchivedToList(khoaTong){
+    archiveToDetail.innerHTML = '';
+    archiveToList.innerHTML = '<div class="empty-state">Đang tải...</div>';
+    try{
+      const res = await fetch(`${WEB_APP_URL}?action=archived_to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
+      const list = await res.json();
+      if (!list.length){ archiveToList.innerHTML = '<div class="empty-state">Không có Tổ nào được lưu trữ cho khóa này.</div>'; return; }
+      archiveToList.innerHTML = `<div class="to-grid" style="margin-top:10px;">${list.map(t => `
+        <div class="to-card archive-to-card" data-toid="${escapeHtml(t.ToId)}" style="background:#E7E7E7;">
+          <div class="name">${escapeHtml(t.TenTo)}</div>
+          <div class="count num">${t.SoLuongHocVien}</div>
+        </div>
+      `).join('')}</div>`;
+      archiveToList.querySelectorAll('.archive-to-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const t = list.find(x => x.ToId === card.dataset.toid);
+          renderArchivedToDetail(t);
+        });
+      });
+    }catch(err){
+      archiveToList.innerHTML = '<div class="empty-state">Lỗi tải danh sách: ' + err.message + '</div>';
+    }
+  }
+
+  function renderArchivedToDetail(t){
+    if (!t){ archiveToDetail.innerHTML = ''; return; }
+    const rows = (t.Students || []).map(s => `
+      <tr>
+        <td>${escapeHtml(s.MaDK)}</td><td>${escapeHtml(s.HoTen)}</td><td>${escapeHtml(s.Khoa||'')}</td>
+        <td class="num">${fmtHours(s.TongThoiGian)}</td><td class="num">${Number(s.TongQuangDuong).toFixed(2)} km</td>
+        <td class="num">${fmtHours(s.GioDem)}</td><td class="num">${fmtHours(s.GioTuDong)}</td><td>${escapeHtml(s.GhiChu||'')}</td>
+      </tr>
+    `).join('');
+    archiveToDetail.innerHTML = `
+      <div style="margin-top:14px; font-size:13px; color:var(--ink-soft);">📦 Đã lưu trữ ngày ${formatDateTimeVN(t.NgayLuuTru)} — chỉ còn bảng tổng hợp, không còn phiên học/ảnh chi tiết.</div>
+      <div class="table-wrap" style="margin-top:8px; max-height:40vh; overflow:auto;">
+        <table>
+          <thead><tr><th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Thời gian</th><th>Quãng đường</th><th>Giờ đêm</th><th>Giờ tự động</th><th>Ghi chú</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
 
   /** Tách "B.01 - K58" -> { hang, soK } để sắp xếp khóa học DAT theo hạng rồi số K */
   function parseCourseLabel(ten){
