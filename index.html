@@ -438,7 +438,7 @@
 </div>
 
 <script>
-  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyg9wDYk7b8mxbYi0l0jaqonc-sHUl2DouWyqRW-8C-e1FNWAgqhPBt1Y2yT1B41TOHvw/exec';
+  const WEB_APP_URL = 'DIEN_URL_WEB_APP_VAO_DAY';
 
   let allCourses = [];
   let cameFromToId = ''; // nhớ Tổ vừa xem, để hiện nút "Quay lại Tổ" ở tab Theo HV
@@ -744,8 +744,15 @@
 
   let allKhoaTong = [];
   async function loadKhoaTongList(){
-    const res = await fetch(`${WEB_APP_URL}?action=khoa_tong_list`);
-    allKhoaTong = await res.json();
+    try {
+      const res = await fetch(`${WEB_APP_URL}?action=khoa_tong_list`);
+      const json = await res.json();
+      if (json && json.error) { console.error('khoa_tong_list error:', json.error); allKhoaTong = []; return; }
+      allKhoaTong = json;
+    } catch (err) {
+      console.error('Lỗi tải danh sách khóa tổng:', err);
+      allKhoaTong = [];
+    }
   }
   function renderKhoaTongDropdown(list){
     const dd = document.getElementById('khoaTongDropdown');
