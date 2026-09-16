@@ -132,6 +132,7 @@
   table.gv-table th, table.gv-table td{ padding:6px 4px; font-size:12px; }
   table.gv-table tr.gv-total-row td{ font-size:15px; color:var(--blue-deep); }
   table.gv-table tr.gv-total-row.over-limit td{ color:var(--behind); }
+  table.gv-table td.slow-speed{ background:var(--behind-bg); color:var(--behind); font-weight:700; }
 
   .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
   table{ width:100%; border-collapse:collapse; min-width:1000px; }
@@ -574,24 +575,31 @@
       const GIOI_HAN_GIAY = 10 * 3600; // 10 giờ
       const quaGioi = data.tongThoiGian > GIOI_HAN_GIAY;
 
-      const rowsHtml = sessions.map((s, i) => `
+      const rowsHtml = sessions.map((s, i) => {
+        const gioSo = s.TongThoiGian / 3600;
+        const vanToc = gioSo > 0 ? s.TongQuangDuong / gioSo : null;
+        const vanTocText = vanToc === null ? '—' : vanToc.toFixed(1) + ' km/h';
+        const vanTocClass = vanToc !== null && vanToc < 20 ? ' class="num slow-speed"' : ' class="num"';
+        return `
         <tr>
           <td data-label="STT">${i + 1}</td>
           <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
           <td data-label="Biển số">${escapeHtml(s.BienSo)}</td>
           <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
           <td class="num" data-label="Quãng đường">${Number(s.TongQuangDuong).toFixed(2)} km</td>
+          <td${vanTocClass} data-label="Vận tốc tb">${vanTocText}</td>
           <td data-label="Đăng nhập">${formatDateTimeVN(s.ThoiDiemDangNhap)}</td>
           <td data-label="Đăng xuất">${formatDateTimeVN(s.ThoiDiemDangXuat)}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       gvResult.innerHTML = `
         ${quaGioi ? `<div class="gv-warning">⚠️ Giáo viên "${escapeHtml(hoTenGV)}" đã chạy DAT quá 10 giờ trong ngày ${ngay.split('-').reverse().join('/')} (tổng ${fmtHours(data.tongThoiGian)}).</div>` : ''}
         <div class="table-wrap">
           <table class="gv-table">
             <thead>
-              <tr><th>STT</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
+              <tr><th>STT</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Vận tốc tb</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
             </thead>
             <tbody>
               ${rowsHtml}
@@ -599,7 +607,7 @@
                 <td colspan="3">Tổng cộng</td>
                 <td class="num">${fmtHours(data.tongThoiGian)}</td>
                 <td class="num">${Number(data.tongQuangDuong).toFixed(2)} km</td>
-                <td colspan="2"></td>
+                <td colspan="3"></td>
               </tr>
             </tbody>
           </table>
@@ -789,6 +797,8 @@
     grid.innerHTML = '<div style="grid-column:1/-1;color:var(--ink-soft);">Đang tải...</div>';
     const res = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
     const list = await res.json();
+    currentToOptions = list; // lưu lại để openToDetail dùng chung, khỏi gọi lại API
+    currentToOptionsKhoaTong = khoaTong;
     grid.innerHTML = list.map(t => `
       <div class="to-card" data-toid="${escapeHtml(t.ToId)}" style="background:${t.Color || '#EEE'};">
         <button type="button" class="to-card-edit" data-toid="${escapeHtml(t.ToId)}" data-tenhientai="${escapeHtml(t.TenTo)}" title="Sửa tên Tổ (Admin)">✎</button>
@@ -832,6 +842,7 @@
   });
 
   let currentToOptions = []; // danh sách Tổ cùng Khóa tổng, dùng cho dropdown "chuyển tổ"
+  let currentToOptionsKhoaTong = null; // Khóa tổng mà currentToOptions đang tương ứng
 
   async function openToDetail(toId){
     currentToId = toId;
@@ -847,9 +858,14 @@
     const students = await studentsRes.json();
     if (info) currentKhoaTong = info.KhoaTong || currentKhoaTong;
 
-    // Lấy danh sách Tổ khác trong cùng Khóa tổng để làm dropdown chuyển tổ
-    const toListRes = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(currentKhoaTong)}`);
-    currentToOptions = await toListRes.json();
+    // currentToOptions (danh sách Tổ cùng khóa, dùng cho dropdown chuyển tổ) thường đã có
+    // sẵn từ lúc mở lưới Tổ — chỉ gọi lại API nếu cache đang lệch khóa (VD nhảy thẳng từ
+    // tab "Theo HV" sang xem Tổ, bỏ qua bước xem lưới).
+    if (currentToOptionsKhoaTong !== currentKhoaTong) {
+      const toListRes = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(currentKhoaTong)}`);
+      currentToOptions = await toListRes.json();
+      currentToOptionsKhoaTong = currentKhoaTong;
+    }
 
     renderToDetailHead(info, students);
     renderToDetailTable(students);
