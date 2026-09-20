@@ -441,11 +441,12 @@
 <script>
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyg9wDYk7b8mxbYi0l0jaqonc-sHUl2DouWyqRW-8C-e1FNWAgqhPBt1Y2yT1B41TOHvw/exec';
 
-  /** Gọi API luôn lấy dữ liệu mới nhất, không để trình duyệt trả về bản cache cũ
-   * (quan trọng với các lệnh "tải lại sau khi sửa/xóa" — cùng 1 URL gọi 2 lần liên tiếp
-   * mà không có dòng này thì trình duyệt có thể trả nhầm kết quả cũ của lần gọi trước). */
+  /** Gọi API luôn lấy dữ liệu mới nhất, không để trình duyệt (hay hạ tầng Google) trả về
+   * bản cache cũ — thêm 1 tham số ngẫu nhiên vào URL để mỗi lần gọi luôn là 1 URL khác nhau,
+   * chắc chắn không bị cache ở bất kỳ lớp nào. */
   function fetchFresh(url){
-    return fetch(url, { cache: 'no-store' });
+    const noCacheUrl = url + (url.includes('?') ? '&' : '?') + '_nocache=' + Date.now() + Math.random();
+    return fetch(noCacheUrl, { cache: 'no-store' });
   }
 
   let allCourses = [];
