@@ -441,6 +441,13 @@
 <script>
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyg9wDYk7b8mxbYi0l0jaqonc-sHUl2DouWyqRW-8C-e1FNWAgqhPBt1Y2yT1B41TOHvw/exec';
 
+  /** Gọi API luôn lấy dữ liệu mới nhất, không để trình duyệt trả về bản cache cũ
+   * (quan trọng với các lệnh "tải lại sau khi sửa/xóa" — cùng 1 URL gọi 2 lần liên tiếp
+   * mà không có dòng này thì trình duyệt có thể trả nhầm kết quả cũ của lần gọi trước). */
+  function fetchFresh(url){
+    return fetch(url, { cache: 'no-store' });
+  }
+
   let allCourses = [];
   let cameFromToId = ''; // nhớ Tổ vừa xem, để hiện nút "Quay lại Tổ" ở tab Theo HV
   let currentKhoaTong = '';
@@ -541,7 +548,7 @@
     gvTeacherSelect.innerHTML = '<option value="">-- Đang tải... --</option>';
     gvResult.innerHTML = '';
     try{
-      const res = await fetch(`${WEB_APP_URL}?action=teachers_by_date&ngay=${encodeURIComponent(gvNgaySelect.value)}`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=teachers_by_date&ngay=${encodeURIComponent(gvNgaySelect.value)}`);
       const list = await res.json();
       if (!list.length){
         gvTeacherSelect.innerHTML = '<option value="">-- Không có dữ liệu ngày này --</option>';
@@ -563,7 +570,7 @@
     gvResult.innerHTML = '<div class="empty-state">Đang tra cứu...</div>';
 
     try{
-      const res = await fetch(`${WEB_APP_URL}?action=sessions_by_teacher_date&hoTenGV=${encodeURIComponent(hoTenGV)}&ngay=${encodeURIComponent(ngay)}`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=sessions_by_teacher_date&hoTenGV=${encodeURIComponent(hoTenGV)}&ngay=${encodeURIComponent(ngay)}`);
       const data = await res.json();
       const sessions = data.sessions || [];
 
@@ -639,7 +646,7 @@
     archiveToDetail.innerHTML = '';
     archiveKhoaTongInput.value = '';
     try{
-      const res = await fetch(`${WEB_APP_URL}?action=archived_khoa_tong_list`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=archived_khoa_tong_list`);
       allArchivedKhoaTong = await res.json();
     }catch(err){ allArchivedKhoaTong = []; }
   });
@@ -666,7 +673,7 @@
     archiveToDetail.innerHTML = '';
     archiveToList.innerHTML = '<div class="empty-state">Đang tải...</div>';
     try{
-      const res = await fetch(`${WEB_APP_URL}?action=archived_to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=archived_to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
       const list = await res.json();
       if (!list.length){ archiveToList.innerHTML = '<div class="empty-state">Không có Tổ nào được lưu trữ cho khóa này.</div>'; return; }
       archiveToList.innerHTML = `<div class="to-grid" style="margin-top:10px;">${list.map(t => `
@@ -724,7 +731,7 @@
   }
 
   async function loadCourses(){
-    const res = await fetch(`${WEB_APP_URL}?action=courses`);
+    const res = await fetchFresh(`${WEB_APP_URL}?action=courses`);
     allCourses = sortCourses(await res.json());
     renderCourseDropdown(allCourses);
     hvCourseSelect.innerHTML = '<option value="">-- Chọn khóa học --</option>' +
@@ -759,7 +766,7 @@
   let allKhoaTong = [];
   async function loadKhoaTongList(){
     try {
-      const res = await fetch(`${WEB_APP_URL}?action=khoa_tong_list`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=khoa_tong_list`);
       const json = await res.json();
       if (json && json.error) { console.error('khoa_tong_list error:', json.error); allKhoaTong = []; return; }
       allKhoaTong = json;
@@ -795,7 +802,7 @@
     document.getElementById('toGridTitle').textContent = khoaTong;
     const grid = document.getElementById('toGrid');
     grid.innerHTML = '<div style="grid-column:1/-1;color:var(--ink-soft);">Đang tải...</div>';
-    const res = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
+    const res = await fetchFresh(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
     const list = await res.json();
     currentToOptions = list; // lưu lại để openToDetail dùng chung, khỏi gọi lại API
     currentToOptionsKhoaTong = khoaTong;
@@ -851,8 +858,8 @@
     document.getElementById('toDetailBody').innerHTML = '';
 
     const [infoRes, studentsRes] = await Promise.all([
-      fetch(`${WEB_APP_URL}?action=to_info&toId=${encodeURIComponent(toId)}`),
-      fetch(`${WEB_APP_URL}?action=students_by_to&toId=${encodeURIComponent(toId)}`)
+      fetchFresh(`${WEB_APP_URL}?action=to_info&toId=${encodeURIComponent(toId)}`),
+      fetchFresh(`${WEB_APP_URL}?action=students_by_to&toId=${encodeURIComponent(toId)}`)
     ]);
     const info = await infoRes.json();
     const students = await studentsRes.json();
@@ -862,7 +869,7 @@
     // sẵn từ lúc mở lưới Tổ — chỉ gọi lại API nếu cache đang lệch khóa (VD nhảy thẳng từ
     // tab "Theo HV" sang xem Tổ, bỏ qua bước xem lưới).
     if (currentToOptionsKhoaTong !== currentKhoaTong) {
-      const toListRes = await fetch(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(currentKhoaTong)}`);
+      const toListRes = await fetchFresh(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(currentKhoaTong)}`);
       currentToOptions = await toListRes.json();
       currentToOptionsKhoaTong = currentKhoaTong;
     }
@@ -1162,7 +1169,7 @@
     hvResult.innerHTML = ''; currentHvStudents = [];
     if (!ma){ hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Chọn khóa học trước...'; return; }
     hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Đang tải danh sách học viên...';
-    const res = await fetch(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(ma)}`);
+    const res = await fetchFresh(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(ma)}`);
     currentHvStudents = await res.json();
     hvStudentInput.disabled = false; hvStudentInput.placeholder = 'Gõ tên học viên...';
   });
@@ -1201,8 +1208,8 @@
     currentHvMaDK = maDK;
     hvResult.innerHTML = '<div class="empty-state">Đang tải...</div>';
     const [studentsRes, sessionsRes] = await Promise.all([
-      fetch(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(hvCourseSelect.value)}`),
-      fetch(`${WEB_APP_URL}?action=sessions&maDK=${encodeURIComponent(maDK)}`)
+      fetchFresh(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(hvCourseSelect.value)}`),
+      fetchFresh(`${WEB_APP_URL}?action=sessions&maDK=${encodeURIComponent(maDK)}`)
     ]);
     const students = await studentsRes.json();
     const sessions = await sessionsRes.json();
@@ -1396,7 +1403,7 @@
     statusEl.textContent = 'Đang tải...';
     listEl.innerHTML = '';
     try {
-      const res = await fetch(`${WEB_APP_URL}?action=missing_photo`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=missing_photo`);
       missingPhotoData = await res.json();
       if (!missingPhotoData.length) {
         statusEl.textContent = 'Tất cả học viên đều đã có ảnh chân dung 🎉';
