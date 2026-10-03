@@ -260,6 +260,57 @@
 
     .modal{ padding:20px 16px; }
   }
+
+  /* Thu gọn nội dung và căn các thanh điều khiển theo phần dữ liệu. */
+  main{ width:var(--content-width, 940px); max-width:100%; }
+  .tabs{ gap:8px; margin-bottom:16px; }
+  .tab-btn, .tabs .add-course-btn{ padding:14px 10px; font-size:14px; }
+  .top-bar, .hv-picker, .gv-picker{ gap:8px; margin-bottom:14px; }
+  .search-wrap{ min-width:0; }
+  .search-wrap input{ padding:9px 10px; }
+  .add-course-btn{ padding:9px 12px; }
+  .gv-picker > div:first-child{ flex:0 0 170px; }
+  .gv-picker > div:nth-child(2){ min-width:160px !important; }
+  .gv-picker select{ padding:9px 8px; }
+  .table-wrap{ max-width:100%; }
+  #toDetailView table{ width:max-content; min-width:0; table-layout:auto; }
+  #toDetailView th, #toDetailView td{ padding:5px 4px; white-space:nowrap; }
+  #toDetailView .yeucau-cell{ min-width:0; white-space:nowrap; }
+  .ghichu-input{ width:125px; }
+  .doito-select{ width:64px; }
+  .to-detail-head{ padding:12px; gap:12px; margin:10px 0; }
+  .to-dates-row{ gap:10px; }
+  .to-grid{ gap:10px; }
+  .to-card{ padding:14px 10px; }
+  .hv-picker select{ min-width:0; width:200px; padding:9px 10px; }
+  .hv-card{ padding:14px; }
+  .hv-head{ gap:12px; margin-bottom:16px; }
+  .hv-head-left{ gap:14px; }
+  .stat-grid{ gap:8px; margin-bottom:16px; }
+  .stat-card{ padding:12px 8px; min-width:0; }
+  .stat-card .n{ font-size:25px; }
+  .sess-item{
+    width:max-content; max-width:none;
+    grid-template-columns:30px max-content minmax(150px,220px) max-content max-content;
+    gap:8px; padding:10px;
+  }
+  .sess-item .date{ font-size:13px; }
+  .sess-item .meta, .sess-item .meta b{ font-size:13px; overflow-wrap:anywhere; }
+  .sess-item .figures{ font-size:17px; }
+  .sess-thumbs{ gap:4px; }
+  .sess-thumbs img{ width:80px; height:80px; }
+  .sess-list{ gap:8px; overflow-x:auto; }
+  @media(max-width:720px){
+    main{ width:100%; }
+    .tab-btn, .tabs .add-course-btn{ padding:13px 8px; font-size:13px; }
+    .gv-picker > div:first-child{ flex:0 1 170px; }
+    .hv-picker select{ width:100%; }
+    .sess-item{ width:100%; max-width:100%; grid-template-columns:minmax(0,1fr); }
+    .sess-item .figures{ white-space:normal; }
+    .stat-card .n{ font-size:22px; }
+    .stat-card .thieu{ overflow-wrap:anywhere; }
+  }
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1507,6 +1558,42 @@
 
   document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('open'));
   lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
+
+
+  // Đồng bộ chiều rộng của nút và ô tìm kiếm với bảng đang xem.
+  function syncContentWidth(){
+    const main = document.querySelector('main');
+    const panel = document.querySelector('.tab-panel.active');
+    if (!panel) return;
+    const defaults = { 'tab-gv':720, 'tab-to':940, 'tab-hv':940 };
+    let width = defaults[panel.id] || 940;
+    if (panel.id === 'tab-gv'){
+      const table = panel.querySelector('.gv-table');
+      if (table) width = Math.ceil(table.getBoundingClientRect().width) + 38;
+    } else if (panel.id === 'tab-to'){
+      const view = document.getElementById('toDetailView');
+      const table = view.querySelector('table');
+      if (view.style.display !== 'none' && table && table.querySelector('tbody tr')){
+        width = Math.ceil(table.getBoundingClientRect().width) + 38;
+      }
+    } else if (panel.id === 'tab-hv' && window.innerWidth > 720){
+      const rows = [...panel.querySelectorAll('.sess-item')];
+      if (rows.length) width = Math.max(...rows.map(row => row.getBoundingClientRect().width)) + 66;
+    }
+    main.style.setProperty('--content-width', Math.max(580, Math.ceil(width)) + 'px');
+  }
+  let layoutFrame = 0;
+  function scheduleContentWidth(){
+    cancelAnimationFrame(layoutFrame);
+    layoutFrame = requestAnimationFrame(syncContentWidth);
+  }
+  const layoutObserver = new MutationObserver(scheduleContentWidth);
+  document.querySelectorAll('.tab-panel').forEach(panel => {
+    layoutObserver.observe(panel, { childList:true, subtree:true, attributes:true, attributeFilter:['class','style'] });
+  });
+  window.addEventListener('resize', scheduleContentWidth);
+  if (document.fonts) document.fonts.ready.then(scheduleContentWidth);
+  scheduleContentWidth();
 
   updateLockUI();
 </script>
