@@ -290,16 +290,16 @@
   .stat-card{ padding:12px 8px; min-width:0; }
   .stat-card .n{ font-size:25px; }
   .sess-item{
-    width:max-content; max-width:none;
-    grid-template-columns:30px max-content minmax(150px,220px) max-content max-content;
-    gap:8px; padding:10px;
+    width:100%; max-width:100%; min-width:0;
+    grid-template-columns:26px minmax(120px,140px) minmax(0,1fr) 86px max-content;
+    gap:6px; padding:8px;
   }
-  .sess-item .date{ font-size:13px; }
+  .sess-item .date{ font-size:12px; min-width:0; }
   .sess-item .meta, .sess-item .meta b{ font-size:13px; overflow-wrap:anywhere; }
-  .sess-item .figures{ font-size:17px; }
+  .sess-item .figures{ font-size:15px; min-width:0; line-height:1.6; }
   .sess-thumbs{ gap:4px; }
-  .sess-thumbs img{ width:80px; height:80px; }
-  .sess-list{ gap:8px; overflow-x:auto; }
+  .sess-thumbs img{ width:68px; height:68px; flex-shrink:0; }
+  .sess-list{ gap:8px; min-width:0; }
   @media(max-width:720px){
     main{ width:100%; }
     .tab-btn, .tabs .add-course-btn{ padding:13px 8px; font-size:13px; }
@@ -1366,14 +1366,15 @@
           <div>Ra: &nbsp;${formatDate(sess.ThoiDiemDangXuat)}</div>
         </div>
         <div class="meta">
-          GV: <b>${escapeHtml(sess.HoTenGV || '—')}</b> · Xe <b>${escapeHtml(sess.BienSo || '—')}</b>
+          <div>GV: <b>${escapeHtml(sess.HoTenGV || '—')}</b></div>
+          <div>Xe: <b>${escapeHtml(sess.BienSo || '—')}</b></div>
           <div class="tags">
             ${sess.LaDem ? '<span class="tag dem">Giờ đêm</span>' : ''}
             ${sess.LaXeTuDong ? '<span class="tag auto">Xe tự động</span>' : ''}
           </div>
           ${sess.IsDeleted ? `<div class="deleted-note">Hủy phiên và lý do: ${escapeHtml(sess.DeleteReason || '(không ghi)')}</div>` : ''}
         </div>
-        <div class="figures num">${fmtHours(sess.TongThoiGian)} · ${Number(sess.TongQuangDuong).toFixed(2)} km</div>
+        <div class="figures num"><div>${fmtHours(sess.TongThoiGian)}</div><div>${Number(sess.TongQuangDuong).toFixed(2)} km</div></div>
         <div class="sess-thumbs">
           ${hasDn ? `<img class="lazy-img" src="logo.png" data-path="${escapeHtml(sess.Srcdn)}" alt="Ảnh đăng nhập" />` : ''}
           ${hasDx ? `<img class="lazy-img" src="logo.png" data-path="${escapeHtml(sess.Srcdx)}" alt="Ảnh đăng xuất" />` : ''}
