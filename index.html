@@ -128,8 +128,11 @@
   }
   tr.gv-total-row td{ font-weight:800; border-top:2px solid var(--ink); }
   tr.gv-total-row.over-limit td{ background:var(--behind-bg); color:var(--behind); }
-  table.gv-table{ min-width:0; width:100%; }
-  table.gv-table th, table.gv-table td{ padding:6px 4px; font-size:12px; }
+  .gv-table-wrap{ width:fit-content; max-width:100%; }
+  table.gv-table{ min-width:0; width:max-content; table-layout:auto; }
+  table.gv-table th, table.gv-table td{
+    padding:6px 7px; font-size:12px; white-space:nowrap;
+  }
   table.gv-table tr.gv-total-row td{ font-size:15px; color:var(--blue-deep); }
   table.gv-table tr.gv-total-row.over-limit td{ color:var(--behind); }
   table.gv-table td.slow-speed{ background:var(--behind-bg); color:var(--behind); font-weight:700; }
@@ -590,6 +593,7 @@
         const vanTocClass = vanToc !== null && vanToc < 20 ? ' class="num slow-speed"' : ' class="num"';
         return `
         <tr>
+          <td data-label="Khóa">${escapeHtml(s.KhoaHoc || '—')}</td>
           <td data-label="STT">${i + 1}</td>
           <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
           <td data-label="Biển số">${escapeHtml(s.BienSo)}</td>
@@ -604,15 +608,15 @@
 
       gvResult.innerHTML = `
         ${quaGioi ? `<div class="gv-warning">⚠️ Giáo viên "${escapeHtml(hoTenGV)}" đã chạy DAT quá 10 giờ trong ngày ${ngay.split('-').reverse().join('/')} (tổng ${fmtHours(data.tongThoiGian)}).</div>` : ''}
-        <div class="table-wrap">
+        <div class="table-wrap gv-table-wrap">
           <table class="gv-table">
             <thead>
-              <tr><th>STT</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Vận tốc tb</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
+              <tr><th>Khóa</th><th>STT</th><th>Họ tên</th><th>Biển số</th><th>Thời gian</th><th>Quãng đường</th><th>Vận tốc tb</th><th>Đăng nhập</th><th>Đăng xuất</th></tr>
             </thead>
             <tbody>
               ${rowsHtml}
               <tr class="gv-total-row${quaGioi ? ' over-limit' : ''}">
-                <td colspan="3">Tổng cộng</td>
+                <td colspan="4">Tổng cộng</td>
                 <td class="num">${fmtHours(data.tongThoiGian)}</td>
                 <td class="num">${Number(data.tongQuangDuong).toFixed(2)} km</td>
                 <td colspan="3"></td>
