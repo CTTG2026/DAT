@@ -352,6 +352,14 @@
   .gv-picker select{min-width:0; max-width:100%; box-sizing:border-box; font-size:12px; padding:8px 5px;}
   .gv-picker #gvSearchBtn{white-space:nowrap; padding:8px 10px;}
   @media(max-width:520px){.gv-picker{gap:4px;} .gv-picker label{font-size:10px;} .gv-picker select{font-size:11px; padding:8px 2px;} .gv-picker #gvSearchBtn{font-size:11px; padding:8px 5px;}}
+  #toKhoaView .top-bar{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center;}
+  #toKhoaView .top-bar .search-wrap{min-width:0;}
+  #toSearchBtn,#openImportToExcel,#hvSearchBtn{flex:none; white-space:nowrap; padding:8px 10px; font-size:12px;}
+  #openImportToExcel{padding:8px; font-size:11px;}
+  .hv-picker{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2.4fr) auto; align-items:center; gap:8px;}
+  .hv-picker #hvStudentWrap{min-width:0 !important;}
+  .hv-picker select{width:100%; min-width:0;}
+  @media(max-width:520px){.hv-picker{grid-template-columns:minmax(0,1fr) auto;} .hv-picker select{grid-column:1 / -1;} #toKhoaView .top-bar{gap:5px;} #toSearchBtn,#openImportToExcel{padding:8px 6px; font-size:11px;}}
   .gv-student-link{border:0; background:transparent; color:inherit; font:inherit; padding:0; text-align:left; cursor:pointer; text-decoration:inherit;}
   .gv-student-link:hover{text-decoration:underline;}
   .gv-student-link:disabled{cursor:default;}
@@ -420,10 +428,10 @@
           <input type="text" id="khoaTongInput" placeholder="Tìm khóa..." autocomplete="off" />
           <div class="course-dropdown" id="khoaTongDropdown"></div>
         </div>
-        <button class="add-course-btn" id="openImportToExcel">+ Thêm danh sách chia tổ</button>
+        <button class="add-course-btn" id="toSearchBtn">Tra cứu</button>
+        <button class="add-course-btn" id="openImportToExcel">+ Ds chia tổ</button>
       </div>
       <button class="add-course-btn secondary" id="openArchive" style="width:100%; margin-bottom:14px;">📦 Dữ liệu DAT theo tổ (quá 3 tháng)</button>
-      <div class="empty-state">Gõ tên khóa để xem danh sách Tổ, hoặc bấm "+ Thêm danh sách chia tổ" để nhập khóa mới.</div>
     </div>
 
     <!-- Bước 2: lưới các Tổ trong khóa tổng -->
@@ -464,6 +472,7 @@
         <input type="text" id="hvStudentInput" placeholder="Chọn khóa học trước..." autocomplete="off" disabled />
         <div class="course-dropdown" id="hvStudentDropdown"></div>
       </div>
+      <button type="button" class="add-course-btn" id="hvSearchBtn">Tra cứu</button>
     </div>
     <div id="hvResult"></div>
   </div>
@@ -1070,16 +1079,17 @@
       allKhoaTong = [];
     }
   }
+  let pendingKhoaTong = '';
   function renderKhoaTongDropdown(list){
     const dd = document.getElementById('khoaTongDropdown');
-    if (!list.length){ dd.innerHTML = `<div style="color:var(--ink-soft);cursor:default;">Chưa có khóa nào — bấm "+ Thêm danh sách chia tổ"</div>`; }
+    if (!list.length){ dd.innerHTML = `<div style="color:var(--ink-soft);cursor:default;">Chưa có khóa nào — bấm "+ Ds chia tổ"</div>`; }
     else {
       dd.innerHTML = list.map(k => `<div data-kt="${escapeHtml(k.KhoaTong)}">${escapeHtml(k.KhoaTong)} <span class="num" style="color:#8a938d;font-size:11px;">(${k.SoLuongTo} tổ)</span></div>`).join('');
       dd.querySelectorAll('div[data-kt]').forEach(div => {
         div.addEventListener('click', () => {
-          document.getElementById('khoaTongInput').value = '';
+          pendingKhoaTong = div.dataset.kt;
+          document.getElementById('khoaTongInput').value = pendingKhoaTong;
           dd.classList.remove('open');
-          openKhoaTongGrid(div.dataset.kt);
         });
       });
     }
@@ -1087,8 +1097,20 @@
   }
   document.getElementById('khoaTongInput').addEventListener('focus', () => renderKhoaTongDropdown(allKhoaTong));
   document.getElementById('khoaTongInput').addEventListener('input', (e) => {
+    pendingKhoaTong = '';
     const q = e.target.value.trim().toLowerCase();
     renderKhoaTongDropdown(allKhoaTong.filter(k => k.KhoaTong.toLowerCase().includes(q)));
+  });
+
+  document.getElementById('toSearchBtn').addEventListener('click', async () => {
+    const value = document.getElementById('khoaTongInput').value.trim();
+    const course = allKhoaTong.find(k => k.KhoaTong === pendingKhoaTong && k.KhoaTong === value) ||
+      allKhoaTong.find(k => normalizeVN(k.KhoaTong) === normalizeVN(value));
+    if (!course) { alert('Vui lòng chọn một khoá trong danh sách trước khi tra cứu.'); return; }
+    const button = document.getElementById('toSearchBtn');
+    document.getElementById('khoaTongDropdown').classList.remove('open');
+    button.disabled = true;
+    try { await openKhoaTongGrid(course.KhoaTong); } finally { button.disabled = false; }
   });
 
   async function openKhoaTongGrid(khoaTong){
@@ -1459,6 +1481,7 @@
   /* ================== TAB: THEO HỌC VIÊN ================== */
   let currentHvStudents = [];
   let currentHvMaDK = '';
+  let pendingHvMaDK = '';
 
   let hvCourseRequest = 0;
   let hvDetailRequest = 0;
@@ -1480,7 +1503,7 @@
     }
   }
   hvCourseSelect.addEventListener('change', () => {
-    hvDetailRequest++; currentHvMaDK = ''; hvStudentInput.value = ''; hvResult.innerHTML = '';
+    hvDetailRequest++; currentHvMaDK = ''; pendingHvMaDK = ''; hvStudentInput.value = ''; hvResult.innerHTML = '';
     resetImageLoading();
     loadHvStudents().catch(() => {});
   });
@@ -1505,20 +1528,37 @@
           hvStudentDropdown.classList.remove('open');
           cameFromGv = null;
           cameFromToId = ''; // tra cứu trực tiếp, không phải từ Tổ
-          performHvSearch(student.MaDK);
+          pendingHvMaDK = student.MaDK;
+          hvDetailRequest++; currentHvMaDK = ''; hvResult.innerHTML = '';
         });
       });
     }
     hvStudentDropdown.classList.add('open');
   }
-  hvStudentInput.addEventListener('input', renderHvSuggestions);
+  hvStudentInput.addEventListener('input', () => { pendingHvMaDK = ''; hvDetailRequest++; currentHvMaDK = ''; hvResult.innerHTML = ''; renderHvSuggestions(); });
   hvStudentInput.addEventListener('focus', () => { if (currentHvStudents.length) renderHvSuggestions(); });
   document.addEventListener('click', (e) => { if (!e.target.closest('#hvStudentWrap')) hvStudentDropdown.classList.remove('open'); });
+
+  document.getElementById('hvSearchBtn').addEventListener('click', async () => {
+    const value = hvStudentInput.value.trim();
+    let student = currentHvStudents.find(s => s.MaDK === pendingHvMaDK && value === String(s.HoTen || s.MaDK));
+    if (!student && value) {
+      const matches = currentHvStudents.filter(s => String(s.MaDK) === value || normalizeVN(s.HoTen || '') === normalizeVN(value));
+      if (matches.length === 1) student = matches[0];
+    }
+    if (!student) { alert('Vui lòng chọn một học viên trong danh sách trước khi tra cứu.'); return; }
+    cameFromGv = null; cameFromToId = '';
+    hvStudentInput.value = student.HoTen || student.MaDK;
+    hvStudentDropdown.classList.remove('open');
+    const button = document.getElementById('hvSearchBtn');
+    button.disabled = true;
+    try { await performHvSearch(student.MaDK); } finally { button.disabled = false; }
+  });
 
   async function performHvSearch(maDK){
     if (!maDK) return;
     const request = ++hvDetailRequest;
-    currentHvMaDK = maDK;
+    currentHvMaDK = maDK; pendingHvMaDK = maDK;
     resetImageLoading();
     hvResult.innerHTML = '<div class="empty-state">Đang tải...</div>';
     try {
