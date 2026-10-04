@@ -312,6 +312,36 @@
     .stat-card .thieu{ overflow-wrap:anywhere; }
   }
 
+
+  /* Thanh chức năng cố định một hàng; làm mới bằng biểu tượng. */
+  .tabs{ grid-template-columns:repeat(4,minmax(0,1fr)) 38px; gap:6px; align-items:stretch; }
+  .tabs .tab-btn, .tabs .add-course-btn{
+    min-width:0; min-height:46px; padding:10px 5px;
+    font-size:12px; line-height:1.35; white-space:normal;
+  }
+  .refresh-icon{
+    border:1px solid var(--line); border-radius:10px; background:var(--surface);
+    color:var(--ink); font-size:25px; font-weight:700; padding:0;
+  }
+  .refresh-icon:hover{ background:var(--track); }
+  .refresh-icon:disabled{ opacity:.5; cursor:wait; }
+  table.gv-table th, table.gv-table td{ padding:11px 7px; font-weight:700; line-height:1.5; }
+  @media(max-width:720px){
+    .tabs{ grid-template-columns:repeat(4,minmax(0,1fr)) 30px; gap:4px; }
+    .tabs .tab-btn, .tabs .add-course-btn{ font-size:10.5px; padding:8px 3px; min-height:48px; }
+    .refresh-icon{ font-size:22px; }
+    .to-detail-head{ display:block; padding:10px 8px; }
+    .to-title-group h3{ font-size:15px; line-height:1.4; margin-bottom:8px; }
+    .to-title-group .khoa-tong-label{ display:none; }
+    .to-dates{ display:grid; grid-template-columns:repeat(var(--course-count,1),minmax(0,1fr)); gap:8px; width:100%; }
+    .to-dates-row{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; min-width:0; }
+    .to-dates label{ font-size:9px; line-height:1.3; margin-bottom:3px; }
+    .to-date-display{ gap:2px; min-width:0; align-items:center; }
+    .to-date-value{ font-size:10px; white-space:normal; overflow-wrap:anywhere; }
+    .to-date-edit-btn{ width:14px; height:16px; line-height:16px; font-size:9px; flex-shrink:0; }
+    .to-dates input{ width:100%; min-width:0; font-size:11px; padding:5px 2px; }
+  }
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -329,9 +359,6 @@
 </header>
 
 <main>
-  <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-    <button class="add-course-btn secondary" id="refreshDataBtn" style="font-size:12px;padding:6px 10px;">↻ Làm mới dữ liệu</button>
-  </div>
   <div id="requestNotice" role="alert" style="display:none;margin-bottom:10px;color:var(--behind);font-size:13px;"></div>
   <div class="search-wrap" id="courseSearchWrap" style="display:none; margin-bottom:16px;">
     <input type="text" id="courseSearch" placeholder="Tìm khóa học (DAT)..." autocomplete="off" />
@@ -343,6 +370,7 @@
     <button class="tab-btn" data-tab="hv">Kiểm tra DAT HV</button>
     <button class="tab-btn" data-tab="gv">Kiểm tra giờ GV</button>
     <button class="add-course-btn" id="openAddCourse" style="border-radius:12px;">+ Thêm khóa học</button>
+    <button class="refresh-icon" id="refreshDataBtn" type="button" title="Làm mới dữ liệu" aria-label="Làm mới dữ liệu">↻</button>
   </div>
 
   <!-- ============== TAB: THEO TỔ ============== -->
@@ -1019,11 +1047,11 @@
     }
 
     head.innerHTML = `
-      <div>
+      <div class="to-title-group" title="Khóa tổng: ${escapeHtml(info.KhoaTong || '')}">
         <h3>${escapeHtml(info.TenTo)}</h3>
         <div class="khoa-tong-label">Khóa tổng: ${escapeHtml(info.KhoaTong || '')}</div>
       </div>
-      <div class="to-dates">
+      <div class="to-dates" style="--course-count:${Math.min(khoaKeys.length, 2)};">
         ${khoaKeys.map(k => {
           const labelBatDau = k === '_' ? 'Ngày bắt đầu' : `Bắt đầu ${k}`;
           const labelKetThuc = k === '_' ? 'Ngày kết thúc' : `Kết thúc ${k}`;
