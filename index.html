@@ -184,6 +184,9 @@
   }
   .sess-item.sess-deleted{ background:var(--behind-bg); border-color:#EBC9C3; }
   .sess-item.sess-deleted .meta, .sess-item.sess-deleted .figures{ text-decoration:line-through; color:var(--behind); }
+  .sess-item.sess-transmission-error{background:#fee2e2; border-color:#f87171;}
+  .transmission-note{color:#b91c1c; font-weight:700; font-size:12px; margin-top:5px; overflow-wrap:anywhere;}
+  table.gv-table tr.transmission-error-row td{background:#fee2e2; color:#b91c1c;}
   .deleted-note{ font-size:11px; color:var(--behind); margin-top:4px; font-style:italic; text-decoration:none; }
   .sess-num{
     width:30px; height:30px; border-radius:50%; background:var(--primary); color:var(--ink);
@@ -333,6 +336,10 @@
   table.gv-table thead th{ background:var(--primary); color:var(--blue-deep); white-space:normal; line-height:1.3; }
   table.gv-table tr.gv-total-row td{ background:var(--primary); border-top:1px solid var(--line); }
   table.gv-table tr.gv-total-row.over-limit td{ background:var(--primary); color:var(--behind); }
+  table.gv-table td.gv-session-note{min-width:65px; max-width:150px; white-space:normal; overflow-wrap:anywhere;}
+  table.gv-table td.gv-session-note.has-error{color:#b91c1c; background:#fee2e2;}
+  .gv-delete-btn{padding:3px 6px; min-width:28px; background:transparent; color:#b91c1c; border:1px solid var(--line); border-radius:5px; cursor:pointer; font-size:17px;}
+  .gv-delete-btn:disabled{opacity:.45; cursor:wait;}
   table.gv-table .gv-datetime span{ display:block; white-space:nowrap; }
   .tabs .tab-btn{ font-size:13px; }
   .tabs #openAddCourse{ padding-left:3px; padding-right:3px; }
@@ -709,7 +716,10 @@
 
   gvNgaySelect.addEventListener('change', loadGvTeachers);
 
-  document.getElementById('gvSearchBtn').addEventListener('click', async () => {
+  let gvRequestId = 0;
+  document.getElementById('gvSearchBtn').addEventListener('click', loadGvSessions);
+  async function loadGvSessions() {
+    const requestId = ++gvRequestId;
     const ngay = gvNgaySelect.value;
     const hoTenGV = gvTeacherSelect.value;
     if (!hoTenGV){ alert('Vui lòng chọn giáo viên.'); return; }
@@ -718,6 +728,7 @@
     try{
       const res = await fetchFresh(`${WEB_APP_URL}?action=sessions_by_teacher_date&hoTenGV=${encodeURIComponent(hoTenGV)}&ngay=${encodeURIComponent(ngay)}`);
       const data = await res.json();
+      if (requestId !== gvRequestId || ngay !== gvNgaySelect.value || hoTenGV !== gvTeacherSelect.value) return;
       const sessions = data.sessions || [];
 
       if (!sessions.length){
@@ -734,7 +745,7 @@
         const vanTocText = vanToc === null ? '—' : vanToc.toFixed(1) + ' km/h';
         const vanTocClass = vanToc !== null && vanToc < 20 ? ' class="num slow-speed"' : ' class="num"';
         return `
-        <tr>
+        <tr${s.TransmissionError ? ' class="transmission-error-row"' : ''}>
           <td data-label="Khóa">${escapeHtml(s.KhoaHoc || '—')}</td>
           <td data-label="STT">${i + 1}</td>
           <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
@@ -744,6 +755,8 @@
           <td${vanTocClass} data-label="Vận tốc tb">${vanTocText}</td>
           <td class="gv-datetime" data-label="Đăng nhập">${formatGvDateTime(s.ThoiDiemDangNhap)}</td>
           <td class="gv-datetime" data-label="Đăng xuất">${formatGvDateTime(s.ThoiDiemDangXuat)}</td>
+          <td class="gv-session-note${s.TransmissionError ? ' has-error' : ''}" data-label="Ghi chú">${escapeHtml(s.TransmissionError || '')}</td>
+          <td data-label="Xoá"><button type="button" class="gv-delete-btn" data-id="${escapeHtml(s.ID || '')}" ${s.ID ? '' : 'disabled'} title="Xoá phiên học" aria-label="Xoá phiên học của ${escapeHtml(s.HoTen || '')}">🗑</button></td>
         </tr>
       `;
       }).join('');
@@ -753,7 +766,7 @@
         <div class="table-wrap gv-table-wrap">
           <table class="gv-table">
             <thead>
-              <tr><th>Khóa</th><th>STT</th><th>Họ tên</th><th>Biển<br>số</th><th>Thời<br>gian</th><th>Quãng<br>đường</th><th>Vận tốc<br>tb</th><th>Đăng<br>nhập</th><th>Đăng<br>xuất</th></tr>
+              <tr><th>Khóa</th><th>STT</th><th>Họ tên</th><th>Biển<br>số</th><th>Thời<br>gian</th><th>Quãng<br>đường</th><th>Vận tốc<br>tb</th><th>Đăng<br>nhập</th><th>Đăng<br>xuất</th><th>Ghi chú</th><th>Xoá</th></tr>
             </thead>
             <tbody>
               ${rowsHtml}
@@ -761,16 +774,31 @@
                 <td colspan="4">Tổng cộng</td>
                 <td class="num">${fmtHours(data.tongThoiGian)}</td>
                 <td class="num">${Number(data.tongQuangDuong).toFixed(2)} km</td>
-                <td colspan="3"></td>
+                <td colspan="5"></td>
               </tr>
             </tbody>
           </table>
         </div>
       `;
+      gvResult.querySelectorAll('.gv-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const reason = prompt('Nhập lý do xoá phiên học này (có thể khôi phục ở mục học viên):');
+          if (reason === null) return;
+          btn.disabled = true;
+          try {
+            const result = await callAdminApi({action:'delete_session', id:btn.dataset.id, reason});
+            if (!result) return;
+            if (!result.success) throw new Error(result.error || 'Không xoá được phiên.');
+            if (ngay === gvNgaySelect.value && hoTenGV === gvTeacherSelect.value) await loadGvSessions();
+          } catch (error) { alert('Lỗi xoá phiên: ' + error.message); }
+          finally { btn.disabled = false; }
+        });
+      });
     }catch(err){
-      gvResult.innerHTML = '<div class="empty-state">Lỗi tra cứu: ' + err.message + '</div>';
+      if (requestId !== gvRequestId) return;
+      gvResult.innerHTML = '<div class="empty-state">Lỗi tra cứu: ' + escapeHtml(err.message) + '</div>';
     }
-  });
+  }
 
   function formatGvDateTime(val){
     const d = new Date(val);
@@ -1474,8 +1502,9 @@
   function sessionItem(sess, soThuTu){
     const hasDn = !!sess.Srcdn, hasDx = !!sess.Srcdx;
     const deletedClass = sess.IsDeleted ? ' sess-deleted' : '';
+    const transmissionClass = !sess.IsDeleted && sess.TransmissionError ? ' sess-transmission-error' : '';
     return `
-      <div class="sess-item${deletedClass}">
+      <div class="sess-item${deletedClass}${transmissionClass}">
         <div class="sess-num">${soThuTu}</div>
         <div class="date">
           <div>Vào: ${formatDate(sess.ThoiDiemDangNhap)}</div>
@@ -1488,6 +1517,7 @@
             ${sess.LaDem ? '<span class="tag dem">Giờ đêm</span>' : ''}
             ${sess.LaXeTuDong ? '<span class="tag auto">Xe tự động</span>' : ''}
           </div>
+          ${sess.TransmissionError ? `<div class="transmission-note">Lỗi truyền: ${escapeHtml(sess.TransmissionError)}</div>` : ''}
           ${sess.IsDeleted ? `<div class="deleted-note">Hủy phiên và lý do: ${escapeHtml(sess.DeleteReason || '(không ghi)')}</div>` : ''}
         </div>
         <div class="figures num"><div>${fmtHours(sess.TongThoiGian)}</div><div>${Number(sess.TongQuangDuong).toFixed(2)} km</div></div>
@@ -1732,6 +1762,19 @@
     } catch(err){ showRequestError(err); } finally { btn.disabled = false; }
   }
   document.getElementById('refreshDataBtn').addEventListener('click', refreshActiveView);
+  // Chỉ làm mới chi tiết đang xem, khi trang hiển thị; không tạo trigger máy chủ.
+  let automaticDetailRefreshBusy = false;
+  setInterval(async () => {
+    if (document.visibilityState !== 'visible' || automaticDetailRefreshBusy || lightbox.classList.contains('open')) return;
+    const active = document.querySelector('.tab-btn.active');
+    if (!active) return;
+    automaticDetailRefreshBusy = true;
+    try {
+      if (active.dataset.tab === 'hv' && currentHvMaDK) await performHvSearch(currentHvMaDK);
+      else if (active.dataset.tab === 'gv' && gvTeacherSelect.value && gvResult.querySelector('table.gv-table')) await loadGvSessions();
+    } finally { automaticDetailRefreshBusy = false; }
+  }, 15 * 60 * 1000);
+
   // Không để lỗi kết nối bị bỏ sót ở các thao tác mở khóa/tổ.
   const originalOpenToDetail = openToDetail;
   openToDetail = async function(...args){ try { return await originalOpenToDetail(...args); } catch(err){ showRequestError(err); document.getElementById('toDetailHead').textContent = 'Không tải được dữ liệu tổ. Bấm Thử lại.'; } };
