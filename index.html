@@ -347,8 +347,9 @@
   .gv-delete-btn{padding:3px 6px; min-width:28px; background:transparent; color:#b91c1c; border:1px solid var(--line); border-radius:5px; cursor:pointer; font-size:17px;}
   .gv-delete-btn:disabled{opacity:.45; cursor:wait;}
   .gv-picker{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.9fr) minmax(0,1.8fr) auto auto; gap:8px; align-items:end;}
-  .gv-picker > div{min-width:0 !important;}
-  .gv-picker select{min-width:0; font-size:12px; padding:8px 5px;}
+  .gv-picker > div{min-width:0 !important; overflow:hidden;}
+  .gv-picker > div:nth-child(2){min-width:0 !important;}
+  .gv-picker select{min-width:0; max-width:100%; box-sizing:border-box; font-size:12px; padding:8px 5px;}
   .gv-picker #gvSearchBtn{white-space:nowrap; padding:8px 10px;}
   @media(max-width:520px){.gv-picker{gap:4px;} .gv-picker label{font-size:10px;} .gv-picker select{font-size:11px; padding:8px 2px;} .gv-picker #gvSearchBtn{font-size:11px; padding:8px 5px;}}
   .gv-capture-btn{display:flex; align-items:center; justify-content:center; width:34px; height:34px; padding:0; border:1px solid var(--line); border-radius:5px; color:var(--ink); background:var(--primary); cursor:pointer;}
@@ -804,7 +805,7 @@
         <div class="table-wrap gv-table-wrap">
           <table class="gv-table">
             <thead>
-              <tr><th>Khóa</th><th>STT</th><th>Họ tên</th><th>Biển<br>số</th><th>Thời gian<br>(giờ)</th><th>Quãng đường<br>(km)</th><th>Vận tốc tb<br>(km/h)</th><th>Đăng<br>nhập</th><th>Đăng<br>xuất</th><th>Ghi chú</th><th>Xoá</th></tr>
+              <tr><th>Khóa</th><th>STT</th><th>Họ tên</th><th>Biển<br>số</th><th>Thời gian<br>(giờ)</th><th>Quãng<br>đường (km)</th><th>Vận tốc<br>tb (km/h)</th><th>Đăng<br>nhập</th><th>Đăng<br>xuất</th><th>Ghi chú</th><th>Xoá</th></tr>
             </thead>
             <tbody>
               ${rowsHtml}
