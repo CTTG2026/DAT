@@ -329,6 +329,10 @@
 </header>
 
 <main>
+  <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+    <button class="add-course-btn secondary" id="refreshDataBtn" style="font-size:12px;padding:6px 10px;">↻ Làm mới dữ liệu</button>
+  </div>
+  <div id="requestNotice" role="alert" style="display:none;margin-bottom:10px;color:var(--behind);font-size:13px;"></div>
   <div class="search-wrap" id="courseSearchWrap" style="display:none; margin-bottom:16px;">
     <input type="text" id="courseSearch" placeholder="Tìm khóa học (DAT)..." autocomplete="off" />
     <div class="course-dropdown" id="courseDropdown"></div>
@@ -499,9 +503,50 @@
   /** Gọi API luôn lấy dữ liệu mới nhất, không để trình duyệt (hay hạ tầng Google) trả về
    * bản cache cũ — thêm 1 tham số ngẫu nhiên vào URL để mỗi lần gọi luôn là 1 URL khác nhau,
    * chắc chắn không bị cache ở bất kỳ lớp nào. */
-  function fetchFresh(url){
-    const noCacheUrl = url + (url.includes('?') ? '&' : '?') + '_nocache=' + Date.now() + Math.random();
-    return fetch(noCacheUrl, { cache: 'no-store' });
+  const responseCache = new Map();
+  const requestsInFlight = new Map();
+  let cacheGeneration = 0;
+  function invalidateDataCache(){ cacheGeneration++; responseCache.clear(); requestsInFlight.clear(); }
+  async function requestJson(url, timeoutMs = 30000){
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { cache:'no-store', signal:controller.signal });
+      if (!res.ok) throw new Error('Kết nối trả về lỗi ' + res.status);
+      const data = await res.json();
+      if (data && data.error && data.success !== true) throw new Error(data.error);
+      return data;
+    } catch(err){
+      if (err.name === 'AbortError') throw new Error('Kết nối quá lâu. Bấm Thử lại để tải lại dữ liệu.');
+      throw err;
+    } finally { clearTimeout(timer); }
+  }
+  function showRequestError(err){
+    const notice = document.getElementById('requestNotice');
+    notice.style.display = 'block';
+    notice.textContent = 'Không tải được dữ liệu: ' + err.message + ' ';
+    const retry = document.createElement('button');
+    retry.textContent = 'Thử lại'; retry.className = 'add-course-btn secondary';
+    retry.addEventListener('click', refreshActiveView);
+    notice.appendChild(retry);
+  }
+  async function fetchFresh(url){
+    const action = new URL(url).searchParams.get('action');
+    const ttl = ['courses','khoa_tong_list'].includes(action) ? 300000 :
+      ['teachers_by_date','to_by_khoa_tong','students'].includes(action) ? 60000 : 0;
+    const cached = responseCache.get(url);
+    if (ttl && cached && Date.now() - cached.at < ttl) return { json:async () => cached.data };
+    const generation = cacheGeneration;
+    const key = generation + ':' + url;
+    let pending = requestsInFlight.get(key);
+    if (!pending){
+      pending = requestJson(url + (url.includes('?') ? '&' : '?') + '_nocache=' + Date.now())
+        .then(data => { if (ttl && generation === cacheGeneration) responseCache.set(url,{at:Date.now(),data}); return data; });
+      requestsInFlight.set(key,pending);
+    }
+    try { const data = await pending; return { json:async () => data }; }
+    catch(err){ showRequestError(err); throw err; }
+    finally { if (requestsInFlight.get(key) === pending) requestsInFlight.delete(key); }
   }
 
   let allCourses = [];
@@ -548,7 +593,13 @@
     while (true){
       const res = await fetch(WEB_APP_URL, { method:'POST', body: JSON.stringify(Object.assign({}, bodyWithoutPassword, { password })) });
       const data = await res.json();
-      if (data.success !== false || !/mật khẩu|Admin/i.test(data.error || '')) return data;
+      if (data.success !== false || !/mật khẩu|Admin/i.test(data.error || '')) {
+        if (data.success){
+          invalidateDataCache(); currentToOptionsKhoaTong = null;
+          if (bodyWithoutPassword.action === 'upload_photo') imageCache.clear();
+        }
+        return data;
+      }
       alert(data.error);
       if (/Chưa cấu hình/i.test(data.error)) return data;
       password = askAdminPassword();
@@ -1062,13 +1113,14 @@
     }).join('');
 
     body.querySelectorAll('.hv-link').forEach(a => {
-      a.addEventListener('click', () => {
+      a.addEventListener('click', async () => {
         cameFromToId = currentToId;
         switchTab('hv');
+        await loadCourses();
         hvCourseSelect.value = a.dataset.makh || '';
-        hvCourseSelect.dispatchEvent(new Event('change', {bubbles:false}));
-        // đợi danh sách học viên của khóa tải xong rồi mới tra cứu
-        setTimeout(() => performHvSearch(a.dataset.madk), 400);
+        hvStudentInput.value = a.textContent;
+        loadHvStudents().catch(() => {});
+        performHvSearch(a.dataset.madk);
       });
     });
     body.querySelectorAll('.ghichu-input').forEach(inp => {
@@ -1220,15 +1272,29 @@
   let currentHvStudents = [];
   let currentHvMaDK = '';
 
-  hvCourseSelect.addEventListener('change', async () => {
+  let hvCourseRequest = 0;
+  let hvDetailRequest = 0;
+  async function loadHvStudents(){
+    const request = ++hvCourseRequest;
     const ma = hvCourseSelect.value;
-    hvStudentInput.value = ''; hvStudentDropdown.classList.remove('open');
-    hvResult.innerHTML = ''; currentHvStudents = [];
+    hvStudentDropdown.classList.remove('open'); currentHvStudents = [];
     if (!ma){ hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Chọn khóa học trước...'; return; }
     hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Đang tải danh sách học viên...';
-    const res = await fetchFresh(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(ma)}`);
-    currentHvStudents = await res.json();
-    hvStudentInput.disabled = false; hvStudentInput.placeholder = 'Gõ tên học viên...';
+    try {
+      const res = await fetchFresh(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(ma)}`);
+      const list = await res.json();
+      if (request !== hvCourseRequest) return;
+      currentHvStudents = list;
+      hvStudentInput.disabled = false; hvStudentInput.placeholder = 'Gõ tên học viên...';
+    } catch(err){
+      if (request === hvCourseRequest) hvStudentInput.placeholder = 'Lỗi tải dữ liệu — bấm Thử lại';
+      throw err;
+    }
+  }
+  hvCourseSelect.addEventListener('change', () => {
+    hvDetailRequest++; currentHvMaDK = ''; hvStudentInput.value = ''; hvResult.innerHTML = '';
+    resetImageLoading();
+    loadHvStudents().catch(() => {});
   });
 
   function normalizeVN(str){ return normalizeHeader(str); }
@@ -1262,16 +1328,18 @@
 
   async function performHvSearch(maDK){
     if (!maDK) return;
+    const request = ++hvDetailRequest;
     currentHvMaDK = maDK;
+    resetImageLoading();
     hvResult.innerHTML = '<div class="empty-state">Đang tải...</div>';
-    const [studentsRes, sessionsRes] = await Promise.all([
-      fetchFresh(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(hvCourseSelect.value)}`),
-      fetchFresh(`${WEB_APP_URL}?action=sessions&maDK=${encodeURIComponent(maDK)}`)
-    ]);
-    const students = await studentsRes.json();
-    const sessions = await sessionsRes.json();
-    const s = students.find(x => x.MaDK === maDK);
-    renderHvResult(s, sessions);
+    try {
+      const res = await fetchFresh(`${WEB_APP_URL}?action=student_detail&maDK=${encodeURIComponent(maDK)}`);
+      const data = await res.json();
+      if (request !== hvDetailRequest) return;
+      renderHvResult(data.student, data.sessions || []);
+    } catch(err){
+      if (request === hvDetailRequest) hvResult.innerHTML = '<div class="empty-state">Không tải được học viên. Bấm Thử lại ở phía trên.</div>';
+    }
   }
 
   function renderHvResult(s, sessions){
@@ -1307,6 +1375,7 @@
             ${s.To ? `<button class="add-course-btn secondary" id="viewToBtn" style="font-size:12px;padding:8px 14px;">📋 Xem danh sách Tổ</button>` : ''}
           </div>
         </div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">Cập nhật lúc: ${s.CapNhatLuc ? escapeHtml(formatDate(s.CapNhatLuc)) : 'Chưa có số liệu tổng hợp'}</div>
         <div class="stat-grid">
           ${statCard('Quãng đường', s.TongQuangDuong.toFixed(2)+' km', s.ConThieuKm, s.ConThieuKm.toFixed(2)+' km')}
           ${statCard('Thời gian', fmtHours(s.TongThoiGian), s.ConThieuGioPhut, fmtHours(s.ConThieuGioPhut*60))}
@@ -1323,7 +1392,7 @@
     if (viewToBtn) viewToBtn.addEventListener('click', () => { switchTab('to'); openToDetail(s.To); });
 
     hvResult.querySelectorAll('img.lazy-img').forEach(img => {
-      loadLazyImage(img);
+      observeLazyImage(img);
       img.addEventListener('click', () => { if (img.dataset.full){ lightboxImg.src = img.dataset.full; lightbox.classList.add('open'); } });
     });
     hvResult.querySelectorAll('.del-btn').forEach(btn => {
@@ -1387,18 +1456,49 @@
     `;
   }
 
-  /** Tải ảnh qua proxy base64. Nếu lỗi/không có nguồn -> giữ nguyên logo mặc định đang hiện sẵn. */
+  // Chỉ tải ảnh gần vùng nhìn thấy, tối đa 3 yêu cầu cùng lúc.
+  const imageQueue = [];
+  const imageCache = new Map();
+  let activeImages = 0;
+  const imageObserver = typeof IntersectionObserver !== 'undefined'
+    ? new IntersectionObserver(entries => {
+        entries.forEach(entry => { if (entry.isIntersecting){ imageObserver.unobserve(entry.target); queueImage(entry.target); } });
+      }, { rootMargin:'120px' }) : null;
+  function resetImageLoading(){ if (imageObserver) imageObserver.disconnect(); imageQueue.length = 0; }
+  function observeLazyImage(img){
+    if (!img.dataset.path && !img.dataset.drive) return;
+    if (imageObserver) imageObserver.observe(img); else queueImage(img);
+  }
+  function queueImage(img){
+    if (img.dataset.queued) return;
+    img.dataset.queued = '1'; imageQueue.push(img); pumpImages();
+  }
+  function pumpImages(){
+    while (activeImages < 3 && imageQueue.length){
+      const img = imageQueue.shift();
+      if (!img.isConnected) continue;
+      activeImages++;
+      loadLazyImage(img).finally(() => { activeImages--; pumpImages(); });
+    }
+  }
   async function loadLazyImage(imgEl){
     const path = imgEl.dataset.path, driveUrl = imgEl.dataset.drive;
-    let apiUrl;
-    if (path) apiUrl = `${WEB_APP_URL}?action=image_base64&path=${encodeURIComponent(path)}`;
-    else if (driveUrl) apiUrl = `${WEB_APP_URL}?action=photo_base64&url=${encodeURIComponent(driveUrl)}`;
-    else return;
+    const apiUrl = path ? `${WEB_APP_URL}?action=image_base64&path=${encodeURIComponent(path)}` :
+      `${WEB_APP_URL}?action=photo_base64&url=${encodeURIComponent(driveUrl)}`;
     try {
-      const res = await fetch(apiUrl);
-      const data = await res.json();
-      if (data.success){ imgEl.src = `data:${data.mimeType};base64,${data.base64}`; imgEl.dataset.full = imgEl.src; }
-    } catch (err) { /* giữ nguyên logo mặc định */ }
+      let full = imageCache.get(apiUrl);
+      if (!full){
+        const data = await requestJson(apiUrl,20000);
+        if (!data.success) throw new Error(data.error || 'Không tải được ảnh');
+        full = `data:${data.mimeType};base64,${data.base64}`;
+        if (imageCache.size >= 60) imageCache.delete(imageCache.keys().next().value);
+        imageCache.set(apiUrl,full);
+      }
+      if (imgEl.isConnected){ imgEl.src = full; imgEl.dataset.full = full; imgEl.title = imgEl.alt; }
+    } catch(err){
+      imgEl.title = 'Ảnh chưa tải được. Bấm ảnh để thử lại.';
+      imgEl.addEventListener('click', () => { delete imgEl.dataset.queued; queueImage(imgEl); }, {once:true});
+    }
   }
 
   /* ---------- Modal thêm khóa học (kèm ảnh chân dung nếu có) ---------- */
@@ -1562,6 +1662,37 @@
   lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
 
 
+  async function refreshActiveView(){
+    invalidateDataCache(); imageCache.clear();
+    document.getElementById('requestNotice').style.display = 'none';
+    const btn = document.getElementById('refreshDataBtn'); btn.disabled = true;
+    try {
+      const active = document.querySelector('.tab-btn.active');
+      const tab = active ? active.dataset.tab : 'to';
+      if (tab === 'hv'){
+        await loadCourses(); await loadHvStudents();
+        if (currentHvMaDK) await performHvSearch(currentHvMaDK);
+      } else if (tab === 'gv'){
+        const teacher = gvTeacherSelect.value;
+        await loadGvTeachers();
+        if ([...gvTeacherSelect.options].some(o => o.value === teacher) && teacher){
+          gvTeacherSelect.value = teacher; document.getElementById('gvSearchBtn').click();
+        }
+      } else {
+        await loadKhoaTongList();
+        if (document.getElementById('toDetailView').style.display !== 'none' && currentToId) await openToDetail(currentToId);
+        else if (document.getElementById('toGridView').style.display !== 'none' && currentKhoaTong) await openKhoaTongGrid(currentKhoaTong);
+      }
+    } catch(err){ showRequestError(err); } finally { btn.disabled = false; }
+  }
+  document.getElementById('refreshDataBtn').addEventListener('click', refreshActiveView);
+  // Không để lỗi kết nối bị bỏ sót ở các thao tác mở khóa/tổ.
+  const originalOpenToDetail = openToDetail;
+  openToDetail = async function(...args){ try { return await originalOpenToDetail(...args); } catch(err){ showRequestError(err); document.getElementById('toDetailHead').textContent = 'Không tải được dữ liệu tổ. Bấm Thử lại.'; } };
+  const originalOpenKhoaTongGrid = openKhoaTongGrid;
+  openKhoaTongGrid = async function(...args){ try { return await originalOpenKhoaTongGrid(...args); } catch(err){ showRequestError(err); document.getElementById('toGrid').textContent = 'Không tải được danh sách tổ. Bấm Thử lại.'; } };
+  const originalLoadCourses = loadCourses;
+  loadCourses = async function(...args){ try { return await originalLoadCourses(...args); } catch(err){ showRequestError(err); } };
   updateLockUI();
 </script>
 
