@@ -183,8 +183,14 @@
     padding:14px; border:1px solid var(--line); border-radius:6px; background:#FCFDFB;
   }
   .sess-item.sess-deleted{ background:var(--behind-bg); border-color:#EBC9C3; }
+  .sess-item.sess-deleted .date,.sess-item.sess-deleted .sess-num{ text-decoration:line-through; color:var(--behind); }
   .sess-item.sess-deleted .meta, .sess-item.sess-deleted .figures{ text-decoration:line-through; color:var(--behind); }
   .sess-item.sess-transmission-error{background:#fee2e2; border-color:#f87171;}
+  .session-cancel-btn,.session-restore-btn,.session-note-btn{padding:3px 5px; border:1px solid var(--line); border-radius:5px; background:transparent; cursor:pointer; color:#b91c1c; font-size:16px;}
+  .session-cancel-btn:disabled{opacity:.4; cursor:default;}
+  table.gv-table tr.gv-session-deleted td:not(:last-child){text-decoration:line-through;}
+  table.gv-table tr.gv-session-deleted td.gv-session-note{text-decoration:none;}
+  .gv-session-note,.transmission-note{white-space:pre-line !important;}
   .transmission-note{color:#b91c1c; font-weight:700; font-size:12px; margin-top:5px; overflow-wrap:anywhere;}
   table.gv-table tr.transmission-error-row td{background:#fee2e2; color:#b91c1c;}
   .deleted-note{ font-size:11px; color:var(--behind); margin-top:4px; font-style:italic; text-decoration:none; }
@@ -663,6 +669,10 @@
       document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
 
       const tab = btn.dataset.tab;
+      if (tabAlreadyLoaded[tab]) {
+        if (tab === 'hv' && currentHvMaDK) performHvSearch(currentHvMaDK);
+        if (tab === 'gv' && gvTeacherSelect.value && gvResult.querySelector('table.gv-table')) loadGvSessions();
+      }
       if (!tabAlreadyLoaded[tab]) {
         tabAlreadyLoaded[tab] = true;
         if (tab === 'to') loadKhoaTongList();
@@ -745,7 +755,7 @@
         const vanTocText = vanToc === null ? '—' : vanToc.toFixed(1) + ' km/h';
         const vanTocClass = vanToc !== null && vanToc < 20 ? ' class="num slow-speed"' : ' class="num"';
         return `
-        <tr${s.TransmissionError ? ' class="transmission-error-row"' : ''}>
+        <tr class="${sessionNotes(s) ? 'transmission-error-row' : ''}${s.IsDeleted ? ' gv-session-deleted' : ''}">
           <td data-label="Khóa">${escapeHtml(s.KhoaHoc || '—')}</td>
           <td data-label="STT">${i + 1}</td>
           <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
@@ -755,8 +765,9 @@
           <td${vanTocClass} data-label="Vận tốc tb">${vanTocText}</td>
           <td class="gv-datetime" data-label="Đăng nhập">${formatGvDateTime(s.ThoiDiemDangNhap)}</td>
           <td class="gv-datetime" data-label="Đăng xuất">${formatGvDateTime(s.ThoiDiemDangXuat)}</td>
-          <td class="gv-session-note${s.TransmissionError ? ' has-error' : ''}" data-label="Ghi chú">${escapeHtml(s.TransmissionError || '')}</td>
-          <td data-label="Xoá"><button type="button" class="gv-delete-btn" data-id="${escapeHtml(s.ID || '')}" ${s.ID ? '' : 'disabled'} title="Xoá phiên học" aria-label="Xoá phiên học của ${escapeHtml(s.HoTen || '')}">🗑</button></td>
+          <td class="gv-session-note${sessionNotes(s) ? ' has-error' : ''}" data-label="Ghi chú">${escapeHtml(sessionNotes(s))}</td>
+          <td data-label="Xoá">${sessionActionButtons(s)}</td>
+
         </tr>
       `;
       }).join('');
@@ -780,19 +791,8 @@
           </table>
         </div>
       `;
-      gvResult.querySelectorAll('.gv-delete-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const reason = prompt('Nhập lý do xoá phiên học này (có thể khôi phục ở mục học viên):');
-          if (reason === null) return;
-          btn.disabled = true;
-          try {
-            const result = await callAdminApi({action:'delete_session', id:btn.dataset.id, reason});
-            if (!result) return;
-            if (!result.success) throw new Error(result.error || 'Không xoá được phiên.');
-            if (ngay === gvNgaySelect.value && hoTenGV === gvTeacherSelect.value) await loadGvSessions();
-          } catch (error) { alert('Lỗi xoá phiên: ' + error.message); }
-          finally { btn.disabled = false; }
-        });
+      bindSessionActions(gvResult, async () => {
+        if (ngay === gvNgaySelect.value && hoTenGV === gvTeacherSelect.value) await loadGvSessions();
       });
     }catch(err){
       if (requestId !== gvRequestId) return;
@@ -1469,23 +1469,7 @@
       observeLazyImage(img);
       img.addEventListener('click', () => { if (img.dataset.full){ lightboxImg.src = img.dataset.full; lightbox.classList.add('open'); } });
     });
-    hvResult.querySelectorAll('.del-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const reason = prompt('Nhập lý do hủy phiên học này:');
-        if (reason === null) return;
-        const data = await callAdminApi({ action:'delete_session', id: btn.dataset.id, reason });
-        if (!data) return;
-        if (data.success) performHvSearch(currentHvMaDK); else alert('Lỗi: ' + (data.error||''));
-      });
-    });
-    hvResult.querySelectorAll('.undo-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Khôi phục lại phiên học này?')) return;
-        const data = await callAdminApi({ action:'restore_session', id: btn.dataset.id });
-        if (!data) return;
-        if (data.success) performHvSearch(currentHvMaDK); else alert('Lỗi: ' + (data.error||''));
-      });
-    });
+    bindSessionActions(hvResult, () => performHvSearch(currentHvMaDK));
   }
 
   function statCard(label, value, thieuVal, thieuText){
@@ -1499,10 +1483,49 @@
     `;
   }
 
+  function sessionNotes(sess){
+    return [sess.TransmissionError, sess.RuleErrors, sess.SessionManualNote,
+      sess.IsDeleted ? 'HUỶ: ' + (sess.DeleteReason || '(chưa ghi lý do)') : ''].filter(Boolean).join('\n');
+  }
+  function sessionActionButtons(sess){
+    const id = escapeHtml(String(sess.ID || ''));
+    return `<button type="button" class="session-note-btn" data-id="${id}" data-note="${escapeHtml(sess.SessionManualNote || '')}" title="Ghi chú lỗi" aria-label="Ghi chú lỗi">✎</button>
+      ${sess.IsDeleted ? `<button type="button" class="session-restore-btn" data-id="${id}" title="Khôi phục phiên">↺</button>` : ''}
+      <button type="button" class="session-cancel-btn" data-id="${id}" ${sess.IsDeleted ? 'disabled' : ''} title="Huỷ phiên học" aria-label="Huỷ phiên học">🗑</button>`;
+  }
+  function bindSessionActions(root, reload){
+    root.querySelectorAll('.session-cancel-btn,.session-restore-btn,.session-note-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        let body;
+        if (btn.classList.contains('session-cancel-btn')) {
+          const reason = prompt('Nhập lỗi hoặc lý do HUỶ phiên (bắt buộc):');
+          if (reason === null) return;
+          if (!reason.trim()) { alert('Phải nhập lỗi hoặc lý do huỷ phiên.'); return; }
+          body = {action:'delete_session', id:btn.dataset.id, reason:reason.trim()};
+        } else if (btn.classList.contains('session-note-btn')) {
+          const note = prompt('Ghi chú lỗi của phiên; để trống để xoá ghi chú do Admin nhập:',btn.dataset.note || '');
+          if (note === null) return;
+          body = {action:'update_session_note', id:btn.dataset.id, note:note.trim()};
+        } else {
+          if (!confirm('Khôi phục phiên học này?')) return;
+          body = {action:'restore_session', id:btn.dataset.id};
+        }
+        btn.disabled = true;
+        try {
+          const data = await callAdminApi(body);
+          if (!data) return;
+          if (!data.success) throw new Error(data.error || 'Không cập nhật được phiên.');
+          await reload();
+        } catch(error) { alert('Lỗi cập nhật phiên: ' + error.message); }
+        finally { btn.disabled = false; }
+      });
+    });
+  }
+
   function sessionItem(sess, soThuTu){
     const hasDn = !!sess.Srcdn, hasDx = !!sess.Srcdx;
     const deletedClass = sess.IsDeleted ? ' sess-deleted' : '';
-    const transmissionClass = !sess.IsDeleted && sess.TransmissionError ? ' sess-transmission-error' : '';
+    const transmissionClass = !sess.IsDeleted && sessionNotes(sess) ? ' sess-transmission-error' : '';
     return `
       <div class="sess-item${deletedClass}${transmissionClass}">
         <div class="sess-num">${soThuTu}</div>
@@ -1517,16 +1540,13 @@
             ${sess.LaDem ? '<span class="tag dem">Giờ đêm</span>' : ''}
             ${sess.LaXeTuDong ? '<span class="tag auto">Xe tự động</span>' : ''}
           </div>
-          ${sess.TransmissionError ? `<div class="transmission-note">Lỗi truyền: ${escapeHtml(sess.TransmissionError)}</div>` : ''}
-          ${sess.IsDeleted ? `<div class="deleted-note">Hủy phiên và lý do: ${escapeHtml(sess.DeleteReason || '(không ghi)')}</div>` : ''}
+          ${sessionNotes(sess) ? `<div class="transmission-note">${escapeHtml(sessionNotes(sess))}</div>` : ''}
         </div>
         <div class="figures num"><div>${fmtHours(sess.TongThoiGian)}</div><div>${Number(sess.TongQuangDuong).toFixed(2)} km</div></div>
         <div class="sess-thumbs">
           ${hasDn ? `<img class="lazy-img" src="logo.png" data-path="${escapeHtml(sess.Srcdn)}" alt="Ảnh đăng nhập" />` : ''}
           ${hasDx ? `<img class="lazy-img" src="logo.png" data-path="${escapeHtml(sess.Srcdx)}" alt="Ảnh đăng xuất" />` : ''}
-          ${!sess.IsDeleted
-            ? `<button class="del-btn" data-id="${sess.ID}" title="Hủy phiên học">✕</button>`
-            : `<button class="undo-btn" data-id="${sess.ID}" title="Hoàn tác">↺</button>`}
+          ${sessionActionButtons(sess)}
         </div>
       </div>
     `;
