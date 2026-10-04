@@ -352,6 +352,9 @@
   .gv-picker select{min-width:0; max-width:100%; box-sizing:border-box; font-size:12px; padding:8px 5px;}
   .gv-picker #gvSearchBtn{white-space:nowrap; padding:8px 10px;}
   @media(max-width:520px){.gv-picker{gap:4px;} .gv-picker label{font-size:10px;} .gv-picker select{font-size:11px; padding:8px 2px;} .gv-picker #gvSearchBtn{font-size:11px; padding:8px 5px;}}
+  .gv-student-link{border:0; background:transparent; color:inherit; font:inherit; padding:0; text-align:left; cursor:pointer; text-decoration:inherit;}
+  .gv-student-link:hover{text-decoration:underline;}
+  .gv-student-link:disabled{cursor:default;}
   .gv-capture-btn{display:flex; align-items:center; justify-content:center; width:34px; height:34px; padding:0; border:1px solid var(--line); border-radius:5px; color:var(--ink); background:var(--primary); cursor:pointer;}
   .gv-capture-btn:disabled{opacity:.5; cursor:wait;}
   .gv-export-stage{position:fixed; left:0; top:0; z-index:-1000; pointer-events:none; background:var(--surface); border:1px solid var(--line); padding:0; overflow:visible;}
@@ -400,9 +403,9 @@
   </div>
 
   <div class="tabs">
-    <button class="tab-btn" data-tab="to">Kiểm tra DAT theo Tổ</button>
-    <button class="tab-btn" data-tab="hv">Kiểm tra DAT HV</button>
-    <button class="tab-btn" data-tab="gv">Kiểm tra giờ GV</button>
+    <button class="tab-btn" data-tab="to">DAT THEO TỔ</button>
+    <button class="tab-btn" data-tab="hv">DAT HV</button>
+    <button class="tab-btn" data-tab="gv">DAT THEO NGÀY</button>
     <button class="add-course-btn" id="openAddCourse" style="border-radius:12px;">+ Khoá</button>
     <button class="refresh-icon" id="refreshDataBtn" type="button" title="Làm mới dữ liệu" aria-label="Làm mới dữ liệu">↻</button>
   </div>
@@ -619,6 +622,8 @@
   }
 
   let allCourses = [];
+  let cameFromGv = null;
+  let skipGvTabRefresh = false;
   let cameFromToId = ''; // nhớ Tổ vừa xem, để hiện nút "Quay lại Tổ" ở tab Theo HV
   let currentKhoaTong = '';
   let currentToId = '';
@@ -688,7 +693,7 @@
       const tab = btn.dataset.tab;
       if (tabAlreadyLoaded[tab]) {
         if (tab === 'hv' && currentHvMaDK) performHvSearch(currentHvMaDK);
-        if (tab === 'gv' && gvTeacherSelect.value && gvResult.querySelector('table.gv-table')) loadGvSessions();
+        if (tab === 'gv' && !skipGvTabRefresh && gvTeacherSelect.value && gvResult.querySelector('table.gv-table')) loadGvSessions();
       }
       if (!tabAlreadyLoaded[tab]) {
         tabAlreadyLoaded[tab] = true;
@@ -786,7 +791,7 @@
         <tr class="${sessionNotes(s) ? 'transmission-error-row' : ''}${s.IsDeleted ? ' gv-session-deleted' : ''}">
           <td data-label="Khóa">${escapeHtml(s.KhoaHoc || '—')}</td>
           <td data-label="STT">${i + 1}</td>
-          <td data-label="Họ tên">${escapeHtml(s.HoTen)}</td>
+          <td data-label="Họ tên"><button type="button" class="gv-student-link" data-madk="${escapeHtml(s.MaDK || '')}" data-course="${escapeHtml(s.CourseKey || '')}" ${s.MaDK ? '' : 'disabled'} title="Xem tổng DAT học viên">${escapeHtml(s.HoTen)}</button></td>
           <td data-label="Biển số">${escapeHtml(s.BienSo)}</td>
           <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
           <td class="num" data-label="Quãng đường">${Number(s.TongQuangDuong).toFixed(2)}</td>
@@ -819,6 +824,21 @@
           </table>
         </div>
       `;
+      gvResult.querySelectorAll('.gv-student-link').forEach(link => {
+        link.addEventListener('click', async () => {
+          cameFromGv = {day:ngay, course:maKhoaHoc, teacher:hoTenGV, scrollLeft:gvResult.querySelector('.table-wrap').scrollLeft, scrollY:window.scrollY};
+          cameFromToId = '';
+          hvDetailRequest++; currentHvMaDK = '';
+          // Tải danh sách khoá một lần ở đây, tránh lượt tải tự động khi chuyển tab.
+          tabAlreadyLoaded.hv = true;
+          switchTab('hv');
+          await loadCourses();
+          hvCourseSelect.value = link.dataset.course;
+          hvStudentInput.value = link.textContent;
+          loadHvStudents().catch(() => {});
+          await performHvSearch(link.dataset.madk);
+        });
+      });
       bindSessionActions(gvResult, async () => {
         if (ngay === gvNgaySelect.value && hoTenGV === gvTeacherSelect.value && maKhoaHoc === gvCourseSelect.value) await loadGvSessions();
       });
@@ -1281,6 +1301,7 @@
 
     body.querySelectorAll('.hv-link').forEach(a => {
       a.addEventListener('click', async () => {
+        cameFromGv = null;
         cameFromToId = currentToId;
         switchTab('hv');
         await loadCourses();
@@ -1482,6 +1503,7 @@
           const student = currentHvStudents.find(s => s.MaDK === div.dataset.madk);
           hvStudentInput.value = student.HoTen || student.MaDK;
           hvStudentDropdown.classList.remove('open');
+          cameFromGv = null;
           cameFromToId = ''; // tra cứu trực tiếp, không phải từ Tổ
           performHvSearch(student.MaDK);
         });
@@ -1511,11 +1533,25 @@
 
   function renderHvResult(s, sessions){
     const backWrap = document.getElementById('hvBackWrap');
-    backWrap.innerHTML = cameFromToId
-      ? `<button class="back-btn" id="backToToBtn">◀ Quay lại Tổ (${escapeHtml(toIdDisplayName(cameFromToId))})</button>`
-      : '';
+    backWrap.innerHTML = cameFromGv
+      ? '<button class="back-btn" id="backToGvBtn">◀ Quay về DAT THEO NGÀY</button>'
+      : cameFromToId ? `<button class="back-btn" id="backToToBtn">◀ Quay lại Tổ (${escapeHtml(toIdDisplayName(cameFromToId))})</button>` : '';
     const backBtn = document.getElementById('backToToBtn');
     if (backBtn) backBtn.addEventListener('click', () => { switchTab('to'); openToDetail(cameFromToId); });
+    const backGv = document.getElementById('backToGvBtn');
+    if (backGv) backGv.addEventListener('click', async () => {
+      const target = cameFromGv;
+      if (!target) return;
+      gvNgaySelect.value = target.day;
+      gvCourseSelect.value = target.course;
+      renderGvTeacherOptions(target.teacher);
+      skipGvTabRefresh = true;
+      try { switchTab('gv'); } finally { skipGvTabRefresh = false; }
+      await loadGvSessions();
+      const wrap = gvResult.querySelector('.table-wrap');
+      if (wrap) wrap.scrollLeft = target.scrollLeft;
+      window.scrollTo(0,target.scrollY);
+    });
 
     if (!s){ hvResult.innerHTML = '<div class="empty-state">Không tìm thấy dữ liệu học viên.</div>'; return; }
 
