@@ -497,6 +497,7 @@
         <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg>
       </button>
     </div>
+    <div id="gvLoadStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;"></div>
     <div id="gvResult"></div>
   </div>
 </main>
@@ -581,14 +582,15 @@
 <script>
   const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyg9wDYk7b8mxbYi0l0jaqonc-sHUl2DouWyqRW-8C-e1FNWAgqhPBt1Y2yT1B41TOHvw/exec';
 
-  /** Gọi API luôn lấy dữ liệu mới nhất, không để trình duyệt (hay hạ tầng Google) trả về
-   * bản cache cũ — thêm 1 tham số ngẫu nhiên vào URL để mỗi lần gọi luôn là 1 URL khác nhau,
-   * chắc chắn không bị cache ở bất kỳ lớp nào. */
+  /** Dùng cache ngắn cho danh sách lựa chọn, gộp yêu cầu trùng nhau.
+   * Chi tiết phiên luôn gọi API; nút làm mới xoá cache trình duyệt. */
   const responseCache = new Map();
   const requestsInFlight = new Map();
   let cacheGeneration = 0;
   function invalidateDataCache(){ cacheGeneration++; responseCache.clear(); requestsInFlight.clear(); }
   async function requestJson(url, timeoutMs = 30000){
+    const started = performance.now();
+    const action = new URL(url).searchParams.get("action");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -600,7 +602,7 @@
     } catch(err){
       if (err.name === 'AbortError') throw new Error('Kết nối quá lâu. Bấm Thử lại để tải lại dữ liệu.');
       throw err;
-    } finally { clearTimeout(timer); }
+    } finally { clearTimeout(timer); console.info("[DAT] " + action + ": " + Math.round(performance.now()-started) + " ms"); }
   }
   function showRequestError(err){
     const notice = document.getElementById('requestNotice');
@@ -747,21 +749,41 @@
       list.map(gv => `<option value="${escapeHtml(gv)}">${escapeHtml(gv)}</option>`).join('');
     if (list.includes(teacher)) gvTeacherSelect.value = teacher;
   }
-  async function loadGvTeachers(){
+  async function loadGvTeachers(forceFresh = false){
     const request = ++gvFilterRequest;
     const day = gvNgaySelect.value, course = gvCourseSelect.value, teacher = gvTeacherSelect.value;
+    const started = performance.now();
+    let loaded = false;
+    const status = document.getElementById('gvLoadStatus');
+    gvTeacherSelect.disabled = true;
+    document.getElementById('gvSearchBtn').disabled = true;
+    status.textContent = 'Đang tải danh sách giáo viên…';
+    const slowTimer = setTimeout(() => {
+      if (request === gvFilterRequest) status.textContent = 'Máy chủ phản hồi chậm. Đang chờ danh sách giáo viên…';
+    }, 8000);
     gvTeacherSelect.innerHTML = '<option value="">-- Đang tải... --</option>';
     gvResult.innerHTML = '';
     try{
-      const res = await fetchFresh(`${WEB_APP_URL}?action=teacher_filters_by_date&ngay=${encodeURIComponent(day)}`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=teacher_filters_by_date&ngay=${encodeURIComponent(day)}${forceFresh ? "&fresh=1" : ""}`);
       const data = await res.json();
       if (request !== gvFilterRequest || day !== gvNgaySelect.value) return;
       gvFilterData = data;
       gvCourseSelect.innerHTML = '<option value="">Tất cả khoá</option>' + data.courses.map(c=>`<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`).join('');
       if (data.courses.some(c=>c.key === course)) gvCourseSelect.value = course;
       renderGvTeacherOptions(teacher);
+      loaded = true;
+      status.textContent = 'Đã tải danh sách: ' + ((performance.now()-started)/1000).toFixed(1) + ' giây';
     }catch(err){
-      if (request === gvFilterRequest) gvTeacherSelect.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+      if (request === gvFilterRequest) {
+        gvTeacherSelect.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+        status.textContent = 'Không tải được danh sách. Bấm biểu tượng làm mới để thử lại.';
+      }
+    }finally{
+      clearTimeout(slowTimer);
+      if (request === gvFilterRequest) {
+        gvTeacherSelect.disabled = false;
+        document.getElementById('gvSearchBtn').disabled = !loaded || !gvFilterData.teachers.length;
+      }
     }
   }
   gvNgaySelect.addEventListener('change', () => { gvRequestId++; gvCourseSelect.value = ''; loadGvTeachers(); });
@@ -1939,7 +1961,7 @@
         if (currentHvMaDK) await performHvSearch(currentHvMaDK);
       } else if (tab === 'gv'){
         const teacher = gvTeacherSelect.value;
-        await loadGvTeachers();
+        await loadGvTeachers(true);
         if ([...gvTeacherSelect.options].some(o => o.value === teacher) && teacher){
           gvTeacherSelect.value = teacher; document.getElementById('gvSearchBtn').click();
         }
