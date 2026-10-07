@@ -587,14 +587,47 @@
   const responseCache = new Map();
   const requestsInFlight = new Map();
   let cacheGeneration = 0;
-  function invalidateDataCache(){ cacheGeneration++; responseCache.clear(); requestsInFlight.clear(); }
-  async function requestJson(url, timeoutMs = 30000){
+  const choiceCachePrefix = 'DAT_CHOICES_V1:' + WEB_APP_URL + ':';
+  function readChoiceCache(url){
+    try {
+      const entry = JSON.parse(localStorage.getItem(choiceCachePrefix + url) || 'null');
+      const age = entry ? Date.now()-entry.at : Infinity;
+      if (entry && age >= 0 && age < 15*60*1000 && entry.data != null) return entry;
+      localStorage.removeItem(choiceCachePrefix + url);
+    } catch(error) { /* Storage bị chặn hoặc dữ liệu hỏng: gọi API bình thường. */ }
+    return null;
+  }
+  function saveChoiceCache(url, entry){
+    try {
+      const text = JSON.stringify(entry);
+      if (text.length > 200000) return;
+      const keys = Object.keys(localStorage).filter(key=>key.startsWith(choiceCachePrefix));
+      if (keys.length >= 24 && !keys.includes(choiceCachePrefix+url)) {
+        const oldest = keys.sort((a,b) => {
+          try { return JSON.parse(localStorage.getItem(a)).at-JSON.parse(localStorage.getItem(b)).at; }
+          catch(error) { return 0; }
+        })[0];
+        localStorage.removeItem(oldest);
+      }
+      localStorage.setItem(choiceCachePrefix + url, text);
+    } catch(error) { /* Thiếu dung lượng không làm hỏng tra cứu. */ }
+  }
+  function invalidateDataCache(){
+    cacheGeneration++; responseCache.clear(); requestsInFlight.clear();
+    try { Object.keys(localStorage).filter(key=>key.startsWith(choiceCachePrefix)).forEach(key=>localStorage.removeItem(key)); }
+    catch(error) {}
+  }
+  async function requestJson(url, timeoutMs = 45000){
     const started = performance.now();
     const action = new URL(url).searchParams.get("action");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { cache:'no-store', signal:controller.signal });
+      let res = await fetch(url, { cache:'no-store', signal:controller.signal });
+      // Chỉ thử lại một lần cho lỗi HTTP tạm thời; chung giới hạn 45 giây.
+      if ([404,502,503,504].includes(res.status)) {
+        res = await fetch(url + '&_retry=' + Date.now(), {cache:'no-store', signal:controller.signal});
+      }
       if (!res.ok) throw new Error('Kết nối trả về lỗi ' + res.status);
       const data = await res.json();
       if (data && data.error && data.success !== true) throw new Error(data.error);
@@ -604,31 +637,44 @@
       throw err;
     } finally { clearTimeout(timer); console.info("[DAT] " + action + ": " + Math.round(performance.now()-started) + " ms"); }
   }
-  function showRequestError(err){
+  function showRequestError(err, action){
     const notice = document.getElementById('requestNotice');
     notice.style.display = 'block';
     notice.textContent = 'Không tải được dữ liệu: ' + err.message + ' ';
     const retry = document.createElement('button');
     retry.textContent = 'Thử lại'; retry.className = 'add-course-btn secondary';
-    retry.addEventListener('click', refreshActiveView);
+    retry.addEventListener('click', () => {
+      notice.style.display = 'none';
+      // Thử lại danh sách học viên ngay trong khoá hiện tại, không tải lại các khoá.
+      if (action === 'student_options') loadHvStudents().catch(() => {});
+      else refreshActiveView();
+    });
     notice.appendChild(retry);
   }
   async function fetchFresh(url){
     const action = new URL(url).searchParams.get('action');
-    const ttl = ['courses','khoa_tong_list'].includes(action) ? 300000 :
+    const persistent = ['courses','teacher_filters_by_date','student_options'].includes(action) && new URL(url).searchParams.get('fresh') !== '1';
+    const ttl = persistent ? 900000 : ['courses','khoa_tong_list'].includes(action) ? 300000 :
       ['teachers_by_date','teacher_filters_by_date','to_by_khoa_tong','students'].includes(action) ? 60000 : 0;
-    const cached = responseCache.get(url);
+    const cached = responseCache.get(url) || (persistent ? readChoiceCache(url) : null);
     if (ttl && cached && Date.now() - cached.at < ttl) return { json:async () => cached.data };
     const generation = cacheGeneration;
     const key = generation + ':' + url;
     let pending = requestsInFlight.get(key);
     if (!pending){
       pending = requestJson(url + (url.includes('?') ? '&' : '?') + '_nocache=' + Date.now())
-        .then(data => { if (ttl && generation === cacheGeneration) responseCache.set(url,{at:Date.now(),data}); return data; });
+        .then(data => {
+          if (ttl && generation === cacheGeneration) {
+            const entry = {at:Date.now(),data};
+            responseCache.set(url,entry);
+            if (persistent) saveChoiceCache(url,entry);
+          }
+          return data;
+        });
       requestsInFlight.set(key,pending);
     }
     try { const data = await pending; return { json:async () => data }; }
-    catch(err){ showRequestError(err); throw err; }
+    catch(err){ showRequestError(err, action); throw err; }
     finally { if (requestsInFlight.get(key) === pending) requestsInFlight.delete(key); }
   }
 
@@ -1058,10 +1104,12 @@
 
   async function loadCourses(){
     const res = await fetchFresh(`${WEB_APP_URL}?action=courses`);
+    const selectedCourse = hvCourseSelect.value;
     allCourses = sortCourses(await res.json());
     renderCourseDropdown(allCourses);
     hvCourseSelect.innerHTML = '<option value="">-- Chọn khóa học --</option>' +
       allCourses.map(c => `<option value="${c.MaKhoaHoc}">${escapeHtml(c.TenKhoaHoc)}</option>`).join('');
+    if (allCourses.some(c => String(c.MaKhoaHoc) === selectedCourse)) hvCourseSelect.value = selectedCourse;
   }
   function renderCourseDropdown(list){
     courseDropdown.innerHTML = list.map(c => `<div data-ma="${c.MaKhoaHoc}">${escapeHtml(c.TenKhoaHoc)} <span class="num" style="color:#8a938d;font-size:11px;">(${c.MaKhoaHoc})</span></div>`).join('');
@@ -1514,7 +1562,7 @@
     if (!ma){ hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Chọn khóa học trước...'; return; }
     hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Đang tải danh sách học viên...';
     try {
-      const res = await fetchFresh(`${WEB_APP_URL}?action=students&maKhoaHoc=${encodeURIComponent(ma)}`);
+      const res = await fetchFresh(`${WEB_APP_URL}?action=student_options&maKhoaHoc=${encodeURIComponent(ma)}`);
       const list = await res.json();
       if (request !== hvCourseRequest) return;
       currentHvStudents = list;
