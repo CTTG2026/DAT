@@ -387,6 +387,45 @@
     .to-dates input{ width:100%; min-width:0; font-size:11px; padding:5px 2px; }
   }
 
+
+  /* DAT HV: bố cục riêng cho điện thoại; desktop giữ nguyên. */
+  @media (max-width:720px){
+    #tab-hv .hv-picker{
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.65fr) auto;
+      align-items:center; gap:6px;
+    }
+    #tab-hv #hvCourseSelect{
+      grid-column:auto; width:100%; min-width:0; height:42px;
+      padding:8px 3px; font-size:13px; box-sizing:border-box;
+    }
+    #tab-hv #hvStudentWrap{width:100%; min-width:0 !important;}
+    #tab-hv #hvStudentInput{
+      width:100%; min-width:0; height:42px; padding:8px 6px;
+      font-size:16px; box-sizing:border-box;
+    }
+    #tab-hv #hvSearchBtn{
+      width:auto; min-width:0; height:42px; padding:8px 7px;
+      font-size:12px; white-space:nowrap; box-sizing:border-box;
+    }
+    #tab-hv .hv-head{display:grid; grid-template-columns:minmax(0,1fr); gap:12px;}
+    #tab-hv .hv-head-left{
+      display:grid; grid-template-columns:minmax(90px,32%) minmax(0,1fr);
+      gap:12px; width:100%; min-width:0; align-items:start;
+    }
+    #tab-hv .hv-avatar{width:100%; height:auto; aspect-ratio:3 / 4;}
+    #tab-hv .hv-identity{min-width:0;}
+    #tab-hv .hv-identity h2{
+      font-size:17px; line-height:1.3; margin:0 0 8px; overflow-wrap:anywhere;
+    }
+    #tab-hv .hv-info-line{
+      font-size:12px; line-height:1.65; white-space:normal; overflow-wrap:anywhere;
+    }
+    #tab-hv .hv-info-line b{margin-right:4px;}
+    #tab-hv .hv-head-actions{align-items:flex-start !important; min-width:0;}
+    #tab-hv .hv-head-actions .status-pill{max-width:100%; white-space:normal;}
+    #tab-hv #viewToBtn{flex:none; max-width:100%; white-space:normal;}
+  }
+
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -467,9 +506,9 @@
   <div class="tab-panel" id="tab-hv">
     <div id="hvBackWrap"></div>
     <div class="hv-picker">
-      <select id="hvCourseSelect"><option value="">-- Chọn khóa học --</option></select>
+      <select id="hvCourseSelect" aria-label="Khoá học"><option value="">-- Chọn khóa học --</option></select>
       <div class="search-wrap" id="hvStudentWrap" style="flex:1;min-width:200px;">
-        <input type="text" id="hvStudentInput" placeholder="Chọn khóa học trước..." autocomplete="off" disabled />
+        <input type="text" id="hvStudentInput" aria-label="Tên học viên" placeholder="Chọn khóa học trước..." autocomplete="off" disabled />
         <div class="course-dropdown" id="hvStudentDropdown"></div>
       </div>
       <button type="button" class="add-course-btn" id="hvSearchBtn">Tra cứu</button>
@@ -1676,14 +1715,14 @@
         <div class="hv-head">
           <div class="hv-head-left">
             <div class="hv-avatar"><img class="lazy-img" src="logo.png" ${avatarAttrs} alt="Ảnh chân dung" /></div>
-            <div>
+            <div class="hv-identity">
               <h2>${escapeHtml(s.HoTen || '')}</h2>
               <div class="hv-info-line"><b>Mã HV:</b>${s.MaDK}</div>
               <div class="hv-info-line"><b>Ngày sinh:</b>${s.NgaySinh || '—'}</div>
               <div class="hv-info-line"><b>Khóa:</b>${escapeHtml(s.KhoaHoc || '—')}</div>
             </div>
           </div>
-          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+          <div class="hv-head-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
             <span class="status-pill ${s.DuDieuKien?'ok':'pending'}" style="font-size:12.5px;padding:5px 12px;border-radius:12px;font-weight:700;${s.DuDieuKien?'background:var(--ok-bg);color:var(--ok);':'background:#FBEEDA;color:#93611C;'}">${s.DuDieuKien?'ĐỦ ĐIỀU KIỆN':'CHƯA ĐỦ ĐIỀU KIỆN'}</span>
             ${s.To ? `<button class="add-course-btn secondary" id="viewToBtn" style="font-size:12px;padding:8px 14px;">📋 Xem danh sách Tổ</button>` : ''}
           </div>
