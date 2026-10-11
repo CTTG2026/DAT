@@ -1,0 +1,2166 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hệ thống kiểm tra DAT CTTG</title>
+<link rel="icon" type="image/png" href="favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FFFDF3; --surface:#FFFFFF; --ink:#2A2210; --ink-soft:#6B6247;
+    --line:#EFE3B8; --accent:#E8A33D; --ok:#2E7D46; --ok-bg:#E4F2E7;
+    --behind:#B23A2E; --behind-bg:#FBEAE7; --track:#F3ECC9;
+    --primary:#F6B92B; --primary-dark:#D89A12; --blue-deep:#1B4F91;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{ background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased; }
+  .num{ font-family:'IBM Plex Mono',monospace; }
+  button{ font-family:'Inter',sans-serif; cursor:pointer; }
+
+  header{ background:var(--primary); color:var(--ink); padding:18px 24px; text-align:center; position:relative; }
+  header h1{ margin:0; font-size:26px; font-weight:900; letter-spacing:0.3px; }
+  header p{ margin:6px 0 0; font-size:16px; font-weight:700; color:#5C4E10; }
+  .logo-wrap{ position:absolute; top:50%; left:22px; transform:translateY(-50%); width:48px; height:48px; }
+  .logo-wrap img{ width:48px; height:48px; object-fit:contain; border-radius:8px; }
+  .logo-fallback{
+    width:48px; height:48px; border-radius:50%; background:var(--ink); color:var(--primary);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; letter-spacing:0.5px;
+  }
+  .admin-control{ position:absolute; top:16px; right:20px; display:flex; align-items:center; gap:10px; }
+  .admin-btn{ background:transparent; border:1px solid rgba(42,34,16,0.35); color:var(--ink); font-size:12px; padding:6px 12px; border-radius:4px; }
+  .admin-btn:hover{ border-color:var(--ink); background:rgba(42,34,16,0.08); }
+
+  main{ max-width:1120px; margin:0 auto; padding:22px 18px 60px; }
+
+  .top-bar{ display:flex; gap:10px; margin-bottom:22px; position:relative; }
+  .search-wrap{ position:relative; flex:1; }
+  .search-wrap input{
+    width:100%; font-size:14px; padding:11px 14px; border:1px solid var(--line);
+    border-radius:5px; background:var(--surface); color:var(--ink);
+  }
+  .search-wrap input:focus{ outline:2px solid var(--primary); outline-offset:1px; }
+  .course-dropdown{
+    position:absolute; top:calc(100% + 4px); left:0; right:0; background:var(--surface);
+    border:1px solid var(--line); border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.08);
+    max-height:320px; overflow-y:auto; display:none; z-index:20;
+  }
+  .course-dropdown.open{ display:block; }
+  .course-dropdown div{ padding:10px 14px; font-size:13.5px; cursor:pointer; }
+  .course-dropdown div:hover{ background:#F3F5F1; }
+  .add-course-btn{
+    white-space:nowrap; padding:11px 18px; border:none; border-radius:5px;
+    background:var(--primary); color:var(--ink); font-size:13.5px; font-weight:700;
+  }
+  .add-course-btn:hover{ background:var(--primary-dark); }
+  .add-course-btn.secondary{ background:var(--surface); color:var(--ink); border:1px solid var(--line); }
+  .icon-btn{
+    flex-shrink:0; width:44px; height:44px; border:1px solid var(--line); border-radius:5px;
+    background:var(--surface); font-size:16px; display:flex; align-items:center; justify-content:center;
+  }
+  .icon-btn:hover{ background:#F3F5F1; }
+
+  .tabs{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:22px; }
+  .tab-btn{
+    padding:22px 14px; border:none; border-radius:12px; font-size:16px; font-weight:800;
+    color:var(--ink); cursor:pointer; transition:transform .15s, box-shadow .15s, opacity .15s;
+  }
+  .tab-btn[data-tab="to"]{ background:var(--primary); }
+  .tab-btn[data-tab="hv"]{ background:#BFE0F0; }
+  .tab-btn[data-tab="gv"]{ background:#C9E8C0; }
+  .tab-btn.active{ box-shadow:0 6px 16px rgba(0,0,0,0.16); transform:translateY(-2px); }
+  .tab-btn:not(.active){ opacity:0.6; }
+  .tab-btn:hover{ opacity:0.9; }
+  .tabs .add-course-btn{ padding:22px 14px; font-size:15px; }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .back-btn{ border:none; background:none; color:var(--ink-soft); font-size:13px; font-weight:600; padding:6px 0; cursor:pointer; }
+  .back-btn:hover{ color:var(--ink); }
+
+  /* --- lưới Tổ (màu theo từng Tổ) --- */
+  .to-grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:14px; }
+  .to-card{
+    border-radius:10px; padding:20px 14px; text-align:center; cursor:pointer;
+    transition:box-shadow .15s, transform .15s; border:1px solid rgba(0,0,0,0.08);
+    position:relative;
+  }
+  .to-card:hover{ box-shadow:0 4px 14px rgba(0,0,0,0.1); transform:translateY(-1px); }
+  .to-card .name{ font-weight:700; font-size:14.5px; color:#2A2210; }
+  .to-card .count{ margin-top:10px; font-size:24px; font-weight:800; color:#2A2210; }
+  .to-card .dates{ margin-top:6px; font-size:10.5px; color:#5A5030; }
+  .to-card-edit{
+    position:absolute; top:6px; right:6px; width:22px; height:22px;
+    border:none; border-radius:6px; background:rgba(255,255,255,0.7); color:#2A2210;
+    font-size:12px; cursor:pointer; line-height:22px; padding:0; opacity:0.55;
+  }
+  .to-card-edit:hover{ opacity:1; background:rgba(255,255,255,0.95); }
+
+  .empty-state{ padding:50px 10px; text-align:center; color:var(--ink-soft); font-size:13.5px; }
+
+  /* --- chi tiết Tổ --- */
+  .to-detail-head{
+    background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin:14px 0 16px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;
+  }
+  .to-detail-head h3{ margin:0; font-size:17px; }
+  .to-detail-head .khoa-tong-label{ font-size:12px; color:var(--ink-soft); margin-top:2px; }
+  .to-dates{ display:flex; flex-direction:column; gap:10px; align-items:flex-start; }
+  .to-dates-row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .to-dates label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:3px; }
+  .to-dates input{ font-size:13px; padding:7px 9px; border:1px solid var(--line); border-radius:4px; width:120px; }
+  .to-date-display{ display:flex; align-items:center; gap:6px; }
+  .to-date-value{ font-size:13px; font-weight:600; color:#2A2210; }
+  .to-date-value.empty{ font-weight:400; font-style:italic; color:var(--ink-soft); }
+  .to-date-edit-btn{
+    width:20px; height:20px; border:none; border-radius:5px; background:#EEE; color:#5A5030;
+    font-size:11px; cursor:pointer; line-height:20px; padding:0; opacity:0.7;
+  }
+  .to-date-edit-btn:hover{ opacity:1; background:#DDD; }
+  .gv-picker{ display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:16px; }
+  .gv-picker label{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:4px; }
+  .gv-picker select{ font-size:14px; padding:10px 11px; border:1px solid var(--line); border-radius:5px; width:100%; background:var(--surface); }
+  .gv-warning{
+    background:var(--behind-bg); color:var(--behind); border:1px solid var(--behind);
+    border-radius:6px; padding:10px 14px; font-size:13.5px; font-weight:700; margin-bottom:12px;
+  }
+  tr.gv-total-row td{ font-weight:800; border-top:2px solid var(--ink); }
+  tr.gv-total-row.over-limit td{ background:var(--behind-bg); color:var(--behind); }
+  .gv-table-wrap{ width:fit-content; max-width:100%; }
+  table.gv-table{ min-width:0; width:max-content; table-layout:auto; }
+  table.gv-table th, table.gv-table td{
+    padding:6px 7px; font-size:12px; white-space:nowrap;
+  }
+  table.gv-table tr.gv-total-row td{ font-size:15px; color:var(--blue-deep); }
+  table.gv-table tr.gv-total-row.over-limit td{ color:var(--behind); }
+  table.gv-table td.slow-speed{ background:var(--behind-bg); color:var(--behind); font-weight:700; }
+
+  .table-wrap{ overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:6px; }
+  table{ width:100%; border-collapse:collapse; min-width:1000px; }
+  thead th{
+    text-align:left; font-size:11px; font-weight:700; color:var(--ink-soft);
+    padding:7px 6px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody td{ padding:5px 6px; font-size:12.5px; border-bottom:1px solid var(--line); vertical-align:middle; line-height:1.3; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ filter:brightness(0.97); }
+  tbody tr.row-complete{ background:var(--ok-bg); }
+  tbody tr.row-complete:hover{ background:#D5EBDA; }
+  .hv-link{ color:var(--blue-deep); font-weight:700; text-decoration:none; cursor:pointer; }
+  .hv-link:hover{ text-decoration:underline; }
+  .ghichu-input{ width:220px; font-size:12px; padding:5px 7px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; }
+  .doito-select{ font-size:11.5px; padding:4px 3px; border:1px solid var(--line); border-radius:4px; background:#FCFDFB; width:66px; }
+  .yeucau-cell{ font-size:10.5px; line-height:1.5; white-space:normal; min-width:190px; }
+  .ho-ten-cell{ white-space:nowrap; }
+  .yeucau-cell.thieu{ color:var(--behind); }
+  .yeucau-cell.du{ color:var(--ok); font-weight:700; }
+
+  .hv-picker{ display:flex; gap:10px; margin-bottom:22px; flex-wrap:wrap; }
+  .hv-picker select{ font-size:14px; padding:10px 12px; border:1px solid var(--line); border-radius:5px; background:var(--surface); min-width:220px; }
+
+  .hv-card{ background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:22px; margin-bottom:20px; }
+  .hv-head{ display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:22px; }
+  .hv-head-left{ display:flex; align-items:flex-start; gap:18px; }
+  .hv-avatar{ width:144px; height:192px; border-radius:8px; overflow:hidden; background:var(--track); border:1px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .hv-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .hv-head h2{ margin:0 0 10px; font-size:22px; font-weight:800; }
+  .hv-info-line{ font-size:16px; font-weight:600; color:var(--ink); line-height:1.9; }
+  .hv-info-line b{ color:var(--ink-soft); font-weight:600; margin-right:6px; }
+
+  .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:24px; }
+  .stat-card{ background:#FAFBF9; border:2px solid var(--line); border-radius:8px; padding:16px; text-align:center; }
+  .stat-card.stat-complete{ background:var(--ok-bg); border-color:var(--ok); }
+  .stat-card .n{ font-size:28px; font-weight:800; }
+  .stat-card .l{ font-size:12.5px; color:var(--ink-soft); margin-top:4px; font-weight:600; }
+  .stat-card .thieu{ font-size:13.5px; color:var(--behind); margin-top:6px; font-weight:700; }
+  .stat-card .du{ font-size:13.5px; color:var(--ok); margin-top:6px; font-weight:700; }
+
+  .sess-list{ display:flex; flex-direction:column; gap:10px; }
+  .sess-item{
+    display:grid; grid-template-columns:34px minmax(150px, auto) 1fr auto auto; gap:14px; align-items:center;
+    padding:14px; border:1px solid var(--line); border-radius:6px; background:#FCFDFB;
+  }
+  .sess-item.sess-deleted{ background:var(--behind-bg); border-color:#EBC9C3; }
+  .sess-item.sess-deleted .date,.sess-item.sess-deleted .sess-num{ text-decoration:line-through; color:var(--behind); }
+  .sess-item.sess-deleted .meta, .sess-item.sess-deleted .figures{ text-decoration:line-through; color:var(--behind); }
+  .sess-item.sess-transmission-error{background:#fee2e2; border-color:#f87171;}
+  .session-cancel-btn,.session-restore-btn,.session-note-btn{padding:3px 5px; border:1px solid var(--line); border-radius:5px; background:transparent; cursor:pointer; color:#b91c1c; font-size:16px;}
+  .session-cancel-btn:disabled{opacity:.4; cursor:default;}
+  table.gv-table tr.gv-session-deleted td:not(:last-child){text-decoration:line-through;}
+  table.gv-table tr.gv-session-deleted td.gv-session-note{text-decoration:none;}
+  .gv-session-note,.transmission-note{white-space:pre-line !important;}
+  .transmission-note{color:#b91c1c; font-weight:700; font-size:12px; margin-top:5px; overflow-wrap:anywhere;}
+  table.gv-table tr.transmission-error-row td{background:#fee2e2; color:#b91c1c;}
+  .deleted-note{ font-size:11px; color:var(--behind); margin-top:4px; font-style:italic; text-decoration:none; }
+  .sess-num{
+    width:30px; height:30px; border-radius:50%; background:var(--primary); color:var(--ink);
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;
+  }
+  .sess-item .date{ font-size:14.5px; font-weight:600; color:var(--ink-soft); line-height:1.7; }
+  .sess-item .date div{ white-space:normal; }
+  .sess-item .meta{ font-size:15px; }
+  .sess-item .meta b{ font-size:15px; }
+  .sess-item .tags{ display:flex; gap:5px; margin-top:6px; }
+  .tag{ font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:9px; }
+  .tag.dem{ background:#E4E9FB; color:#324A9E; }
+  .tag.auto{ background:#F3E4FB; color:#7C3A9E; }
+  .sess-item .figures{ text-align:right; font-size:19px; font-weight:800; white-space:nowrap; }
+  .sess-thumbs{ display:flex; gap:6px; align-items:center; }
+  .sess-thumbs img{ width:100px; height:100px; object-fit:cover; border-radius:4px; border:1px solid var(--line); cursor:pointer; }
+  .del-btn{ border:1px solid var(--behind); background:#fff; color:var(--behind); border-radius:4px; width:24px; height:24px; font-size:12px; line-height:1; }
+  .del-btn:hover{ background:var(--behind); color:#fff; }
+  .undo-btn{ border:1px solid var(--ink-soft); background:#fff; color:var(--ink-soft); border-radius:4px; width:24px; height:24px; font-size:13px; line-height:1; }
+  .undo-btn:hover{ background:var(--ink); color:#fff; border-color:var(--ink); }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(10,12,10,0.5); display:none; align-items:center; justify-content:center; z-index:60; padding:20px; }
+  .modal-overlay.open{ display:flex; }
+  .modal{ background:#fff; border-radius:8px; padding:24px; max-width:440px; width:100%; }
+  .modal h3{ margin:0 0 6px; font-size:16px; }
+  .modal p{ font-size:12.5px; color:var(--ink-soft); margin:0 0 16px; }
+  .modal input{ width:100%; padding:10px; margin-bottom:12px; border:1px solid var(--line); border-radius:5px; font-size:14px; }
+  .modal input[type="file"]{ border:none; padding:0; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; }
+  .modal-actions button{ padding:9px 16px; border-radius:5px; font-size:13px; font-weight:600; border:none; }
+  .btn-cancel{ background:#EEF0EC; color:var(--ink); }
+  .btn-submit{ background:var(--primary); color:var(--ink); font-weight:700; }
+  .modal-status{ font-size:12.5px; margin-top:4px; min-height:16px; white-space:pre-line; }
+  .add-course-section{ border-top:1px solid var(--line); padding-top:14px; margin-top:14px; }
+  .add-course-section:first-of-type{ border-top:none; padding-top:0; margin-top:0; }
+  .add-course-section-title{ font-size:13px; font-weight:700; color:var(--ink); margin-bottom:8px; }
+
+  .lightbox{ position:fixed; inset:0; background:rgba(10,12,10,0.86); display:none; align-items:center; justify-content:center; z-index:70; padding:24px; }
+  .lightbox.open{ display:flex; }
+  .lightbox img{ max-width:min(90vw,640px); max-height:85vh; border-radius:6px; }
+  .lightbox-close{ position:absolute; top:20px; right:24px; color:#fff; font-size:28px; cursor:pointer; }
+
+  @media (max-width:720px){
+    header{ padding:14px 16px; }
+    .logo-wrap{ width:34px; height:34px; left:10px; top:14px; transform:none; }
+    .logo-wrap img, .logo-fallback{ width:34px; height:34px; }
+    header h1{ font-size:19px; padding:0 40px; line-height:1.3; }
+    header p{ font-size:13px; padding:0 40px; }
+    .admin-control{ position:static; justify-content:center; margin-top:10px; }
+    main{ padding:16px 12px 50px; }
+
+    .top-bar{ flex-wrap:wrap; }
+    .search-wrap{ flex-basis:100%; }
+    .add-course-btn{ flex:1; min-width:0; font-size:12.5px; padding:11px 10px; }
+
+    .tab-btn{ padding:16px 8px; font-size:13.5px; }
+
+    #deleteKhoaTongBtn{ flex:none !important; width:40px; height:40px; padding:0 !important; flex-shrink:0; }
+    #deleteKhoaTongBtn .btn-text-full{ display:none; }
+
+    .to-grid{ grid-template-columns:repeat(2,1fr); gap:10px; }
+    .to-card{ padding:14px 10px; }
+    .to-card .name{ font-size:13px; }
+    .to-card .count{ font-size:20px; }
+
+    .hv-picker{ flex-direction:column; }
+    .hv-picker select{ width:100%; }
+    .hv-head-left{ width:100%; flex-direction:column; }
+    .hv-avatar{ width:120px; height:160px; }
+    .stat-grid{ grid-template-columns:repeat(2,1fr); }
+    .sess-item{ grid-template-columns:1fr; text-align:left; }
+    .sess-item .figures{ text-align:left; }
+    .sess-num{ margin-bottom:4px; }
+
+    .modal{ padding:20px 16px; }
+  }
+
+  /* Thu gọn nội dung và căn các thanh điều khiển theo phần dữ liệu. */
+  main{ width:720px; max-width:100%; }
+  .tabs{ gap:8px; margin-bottom:16px; }
+  .tab-btn, .tabs .add-course-btn{ padding:14px 10px; font-size:14px; }
+  .top-bar, .hv-picker, .gv-picker{ gap:8px; margin-bottom:14px; }
+  .search-wrap{ min-width:0; }
+  .search-wrap input{ padding:9px 10px; }
+  .add-course-btn{ padding:9px 12px; }
+  .gv-picker > div:first-child{ flex:0 0 170px; }
+  .gv-picker > div:nth-child(2){ min-width:160px !important; }
+  .gv-picker select{ padding:9px 8px; }
+  .table-wrap{ max-width:100%; }
+  #toDetailView thead th:first-child, #toDetailBody td:first-child{ display:none; }
+  #toDetailView table{ width:max-content; min-width:0; table-layout:auto; }
+  #toDetailView th, #toDetailView td{ padding:5px 4px; white-space:nowrap; }
+  #toDetailView .yeucau-cell{ min-width:0; white-space:nowrap; }
+  .ghichu-input{ width:125px; }
+  .doito-select{ width:64px; }
+  .to-detail-head{ padding:12px; gap:12px; margin:10px 0; }
+  .to-dates-row{ gap:10px; }
+  .to-grid{ gap:10px; }
+  .to-card{ padding:14px 10px; }
+  .hv-picker select{ min-width:0; width:200px; padding:9px 10px; }
+  .hv-card{ padding:14px; }
+  .hv-head{ gap:12px; margin-bottom:16px; }
+  .hv-head-left{ gap:14px; }
+  .stat-grid{ gap:8px; margin-bottom:16px; }
+  .stat-card{ padding:12px 8px; min-width:0; }
+  .stat-card .n{ font-size:25px; }
+  .sess-item{
+    width:100%; max-width:100%; min-width:0;
+    grid-template-columns:26px minmax(120px,140px) minmax(0,1fr) 86px max-content;
+    gap:6px; padding:8px;
+  }
+  .sess-item .date{ font-size:12px; min-width:0; }
+  .sess-item .meta, .sess-item .meta b{ font-size:13px; overflow-wrap:anywhere; }
+  .sess-item .figures{ font-size:15px; min-width:0; line-height:1.6; }
+  .sess-thumbs{ gap:4px; }
+  .sess-thumbs img{ width:68px; height:68px; flex-shrink:0; }
+  .sess-list{ gap:8px; min-width:0; }
+  @media(max-width:720px){
+    main{ width:100%; }
+    .tab-btn, .tabs .add-course-btn{ padding:13px 8px; font-size:13px; }
+    .gv-picker > div:first-child{ flex:0 1 170px; }
+    .hv-picker select{ width:100%; }
+    .sess-item{ width:100%; max-width:100%; grid-template-columns:minmax(0,1fr); }
+    .sess-item .figures{ white-space:normal; }
+    .stat-card .n{ font-size:22px; }
+    .stat-card .thieu{ overflow-wrap:anywhere; }
+  }
+
+
+  /* Thanh chức năng cố định một hàng; làm mới bằng biểu tượng. */
+  .tabs{ grid-template-columns:repeat(3,minmax(0,1fr)) 66px 38px 38px; gap:6px; align-items:stretch; }
+  .tabs .tab-btn, .tabs .add-course-btn{
+    min-width:0; min-height:46px; padding:10px 5px;
+    font-size:12px; line-height:1.35; white-space:normal;
+  }
+  .refresh-icon{
+    border:1px solid var(--line); border-radius:10px; background:var(--surface);
+    color:var(--ink); font-size:25px; font-weight:700; padding:0;
+  }
+  .refresh-icon:hover{ background:var(--track); }
+  .refresh-icon:disabled{ opacity:.5; cursor:wait; }
+  table.gv-table th, table.gv-table td{
+    padding:11px 4px; font-weight:700; line-height:1.5;
+    border-right:1px solid var(--line);
+  }
+  table.gv-table th:last-child, table.gv-table td:last-child{ border-right:none; }
+  table.gv-table thead th{ background:var(--primary); color:var(--blue-deep); white-space:normal; line-height:1.3; }
+  table.gv-table tr.gv-total-row td{ background:var(--primary); border-top:1px solid var(--line); }
+  table.gv-table tr.gv-total-row.over-limit td{ background:var(--primary); color:var(--behind); }
+  table.gv-table td.gv-session-note{min-width:65px; max-width:150px; white-space:normal; overflow-wrap:anywhere;}
+  table.gv-table td.gv-session-note.has-error{color:#b91c1c; background:#fee2e2;}
+  .gv-delete-btn{padding:3px 6px; min-width:28px; background:transparent; color:#b91c1c; border:1px solid var(--line); border-radius:5px; cursor:pointer; font-size:17px;}
+  .gv-delete-btn:disabled{opacity:.45; cursor:wait;}
+  .gv-picker{display:grid; grid-template-columns:minmax(0,1.15fr) minmax(0,.9fr) minmax(0,1.8fr) auto auto; gap:8px; align-items:end;}
+  .gv-picker > div{min-width:0 !important; overflow:hidden;}
+  .gv-picker > div:nth-child(2){min-width:0 !important;}
+  .gv-picker select{min-width:0; max-width:100%; box-sizing:border-box; font-size:12px; padding:8px 5px;}
+  .gv-picker #gvSearchBtn{white-space:nowrap; padding:8px 10px;}
+  @media(max-width:520px){.gv-picker{gap:4px;} .gv-picker label{font-size:10px;} .gv-picker select{font-size:11px; padding:8px 2px;} .gv-picker #gvSearchBtn{font-size:11px; padding:8px 5px;}}
+  #toKhoaView .top-bar{display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; align-items:center;}
+  #toKhoaView .top-bar .search-wrap{min-width:0;}
+  #toSearchBtn,#openImportToExcel,#hvSearchBtn{flex:none; white-space:nowrap; padding:8px 10px; font-size:12px;}
+  #openImportToExcel{padding:8px; font-size:11px;}
+  .hv-picker{display:grid; grid-template-columns:minmax(0,1fr) minmax(0,2.4fr) auto; align-items:center; gap:8px;}
+  .hv-picker #hvStudentWrap{min-width:0 !important;}
+  .hv-picker select{width:100%; min-width:0;}
+  @media(max-width:520px){.hv-picker{grid-template-columns:minmax(0,1fr) auto;} .hv-picker select{grid-column:1 / -1;} #toKhoaView .top-bar{gap:5px;} #toSearchBtn,#openImportToExcel{padding:8px 6px; font-size:11px;}}
+  .gv-student-link{border:0; background:transparent; color:inherit; font:inherit; padding:0; text-align:left; cursor:pointer; text-decoration:inherit;}
+  .gv-student-link:hover{text-decoration:underline;}
+  .gv-student-link:disabled{cursor:default;}
+  .gv-capture-btn{display:flex; align-items:center; justify-content:center; width:34px; height:34px; padding:0; border:1px solid var(--line); border-radius:5px; color:var(--ink); background:var(--primary); cursor:pointer;}
+  .gv-capture-btn:disabled{opacity:.5; cursor:wait;}
+  .gv-export-stage{position:fixed; left:0; top:0; z-index:-1000; pointer-events:none; background:var(--surface); border:1px solid var(--line); padding:0; overflow:visible;}
+  .gv-export-stage table.gv-table{max-width:none; margin:0;}
+  table.gv-table .gv-datetime span{ display:block; white-space:nowrap; }
+  .tabs .tab-btn{ font-size:13px; }
+  .tabs #openAddCourse{ padding-left:3px; padding-right:3px; }
+
+  @media(max-width:720px){
+    .tabs{ grid-template-columns:repeat(3,minmax(0,1fr)) 48px 30px 30px; gap:4px; }
+    .tabs .tab-btn, .tabs .add-course-btn{ font-size:10.5px; padding:8px 3px; min-height:48px; }
+    .refresh-icon{ font-size:22px; }
+    .to-detail-head{ display:block; padding:10px 8px; }
+    .to-title-group h3{ font-size:15px; line-height:1.4; margin-bottom:8px; }
+    .to-title-group .khoa-tong-label{ display:none; }
+    .to-dates{ display:grid; grid-template-columns:repeat(var(--course-count,1),minmax(0,1fr)); gap:8px; width:100%; }
+    .to-dates-row{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px; min-width:0; }
+    .to-dates label{ font-size:9px; line-height:1.3; margin-bottom:3px; }
+    .to-date-display{ gap:2px; min-width:0; align-items:center; }
+    .to-date-value{ font-size:10px; white-space:normal; overflow-wrap:anywhere; }
+    .to-date-edit-btn{ width:14px; height:16px; line-height:16px; font-size:9px; flex-shrink:0; }
+    .to-dates input{ width:100%; min-width:0; font-size:11px; padding:5px 2px; }
+  }
+
+
+  /* DAT HV: bố cục riêng cho điện thoại; desktop giữ nguyên. */
+  @media (max-width:720px){
+    #tab-hv .hv-picker{
+      display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.65fr) auto;
+      align-items:center; gap:6px;
+    }
+    #tab-hv #hvCourseSelect{
+      grid-column:auto; width:100%; min-width:0; height:42px;
+      padding:8px 3px; font-size:13px; box-sizing:border-box;
+    }
+    #tab-hv #hvStudentWrap{width:100%; min-width:0 !important;}
+    #tab-hv #hvStudentInput{
+      width:100%; min-width:0; height:42px; padding:8px 6px;
+      font-size:16px; box-sizing:border-box;
+    }
+    #tab-hv #hvSearchBtn{
+      width:auto; min-width:0; height:42px; padding:8px 7px;
+      font-size:12px; white-space:nowrap; box-sizing:border-box;
+    }
+    #tab-hv .hv-head{
+      display:grid; grid-template-columns:minmax(90px,32%) minmax(0,1fr);
+      grid-template-rows:max-content max-content; column-gap:12px; row-gap:8px; align-items:start;
+    }
+    #tab-hv .hv-head-left{display:contents;}
+    #tab-hv .hv-avatar{grid-column:1; grid-row:1 / span 2; align-self:start; width:100%; height:auto; aspect-ratio:3 / 4;}
+    #tab-hv .hv-identity{grid-column:2; grid-row:1; min-width:0;}
+    #tab-hv .hv-identity h2{
+      font-size:17px; line-height:1.3; margin:0 0 8px; overflow-wrap:anywhere;
+    }
+    #tab-hv .hv-info-line{
+      font-size:12px; line-height:1.65; white-space:normal; overflow-wrap:anywhere;
+    }
+    #tab-hv .hv-info-line b{margin-right:4px;}
+    #tab-hv .hv-head-actions{grid-column:2; grid-row:2; align-items:flex-start !important; min-width:0;}
+    #tab-hv .hv-head-actions .status-pill{max-width:100%; white-space:normal;}
+    #tab-hv #viewToBtn{flex:none; max-width:100%; white-space:normal;}
+  }
+
+  .error-list-icon{font-size:22px;color:#b45309;}
+  .error-list-modal{width:100%;max-width:1100px;max-height:90vh;overflow:auto;box-sizing:border-box;}
+  .error-list-title{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .error-list-title h3{margin:0;}
+  .error-list-auth{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0;}
+  .error-list-auth input{min-width:0;flex:1;padding:10px;border:1px solid var(--line);border-radius:5px;font-size:16px;}
+  .error-list-table{width:100%;border-collapse:collapse;font-size:13px;}
+  .error-list-table th,.error-list-table td{padding:9px 6px;border:1px solid var(--line);vertical-align:top;}
+  .error-list-table th{background:var(--primary);white-space:nowrap;}
+  .error-list-table td{color:#b91c1c;background:#fff1f2;}
+  .error-list-table .error-list-note{min-width:180px;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .error-list-table tr.cancelled td:not(.error-list-note){text-decoration:line-through;}
+  .error-list-info{font-size:13px;line-height:1.5;margin:12px 0;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+<header>
+  <div class="logo-wrap">
+    <img src="logo.png" alt="Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+    <div class="logo-fallback" style="display:none;">CT</div>
+  </div>
+  <h1>HỆ THỐNG KIỂM TRA DAT CTTG</h1>
+  <p>Trung tâm GDNN ĐT&amp;SH Lái xe Chiến Thắng TG</p>
+  <div class="admin-control" id="adminControl"><button class="admin-btn" id="lockAdminBtn" style="display:none;">🔓 Khóa lại Admin</button></div>
+</header>
+
+<main>
+  <div id="requestNotice" role="alert" style="display:none;margin-bottom:10px;color:var(--behind);font-size:13px;"></div>
+  <div class="search-wrap" id="courseSearchWrap" style="display:none; margin-bottom:16px;">
+    <input type="text" id="courseSearch" placeholder="Tìm khóa học (DAT)..." autocomplete="off" />
+    <div class="course-dropdown" id="courseDropdown"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn" data-tab="to">DAT THEO TỔ</button>
+    <button class="tab-btn" data-tab="hv">DAT HV</button>
+    <button class="tab-btn" data-tab="gv">DAT THEO NGÀY</button>
+    <button class="add-course-btn" id="openAddCourse" style="border-radius:12px;">+ Khoá</button>
+    <button class="refresh-icon" id="refreshDataBtn" type="button" title="Làm mới dữ liệu" aria-label="Làm mới dữ liệu">↻</button>
+    <button class="refresh-icon error-list-icon" id="errorSessionsBtn" type="button" title="Danh sách phiên lỗi — Admin" aria-label="Danh sách phiên lỗi">⚠</button>
+  </div>
+
+  <!-- ============== TAB: THEO TỔ ============== -->
+  <div class="tab-panel" id="tab-to">
+
+    <!-- Bước 1: tìm Khóa tổng -->
+    <div id="toKhoaView">
+      <div class="top-bar" style="margin-bottom:8px;">
+        <div class="search-wrap">
+          <input type="text" id="khoaTongInput" placeholder="Tìm khóa..." autocomplete="off" />
+          <div class="course-dropdown" id="khoaTongDropdown"></div>
+        </div>
+        <button class="add-course-btn" id="toSearchBtn">Tra cứu</button>
+        <button class="add-course-btn" id="openImportToExcel">+ Ds chia tổ</button>
+      </div>
+      <button class="add-course-btn secondary" id="openArchive" style="width:100%; margin-bottom:14px;">📦 Dữ liệu DAT theo tổ (quá 3 tháng)</button>
+    </div>
+
+    <!-- Bước 2: lưới các Tổ trong khóa tổng -->
+    <div id="toGridView" style="display:none;">
+      <button class="back-btn" id="backToKhoaView">◀ Đổi khóa khác</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:14px 0 12px; flex-wrap:wrap; gap:8px;">
+        <h3 id="toGridTitle" style="margin:0;font-size:17px;"></h3>
+        <button class="add-course-btn secondary" id="deleteKhoaTongBtn" style="font-size:12px;padding:8px 14px;color:var(--behind);border-color:var(--behind);">🗑 <span class="btn-text-full">Xóa khóa này</span></button>
+      </div>
+      <div class="to-grid" id="toGrid"></div>
+    </div>
+
+    <!-- Bước 3: chi tiết 1 Tổ -->
+    <div id="toDetailView" style="display:none;">
+      <button class="back-btn" id="backToGrid">◀ Quay lại danh sách Tổ</button>
+      <div class="to-detail-head" id="toDetailHead"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Thời gian</th><th>Quãng đường</th>
+              <th>Giờ đêm</th><th>Giờ tự động</th><th>Yêu cầu</th><th>Ghi chú</th><th>Tổ</th>
+            </tr>
+          </thead>
+          <tbody id="toDetailBody"></tbody>
+        </table>
+      </div>
+      <div class="empty-state" id="toDetailEmpty" style="display:none;">Tổ này chưa có học viên nào.</div>
+    </div>
+  </div>
+
+  <!-- ============== TAB: THEO HỌC VIÊN ============== -->
+  <div class="tab-panel" id="tab-hv">
+    <div id="hvBackWrap"></div>
+    <div class="hv-picker">
+      <select id="hvCourseSelect" aria-label="Khoá học"><option value="">-- Chọn khóa học --</option></select>
+      <div class="search-wrap" id="hvStudentWrap" style="flex:1;min-width:200px;">
+        <input type="text" id="hvStudentInput" aria-label="Tên học viên" placeholder="Chọn khóa học trước..." autocomplete="off" disabled />
+        <div class="course-dropdown" id="hvStudentDropdown"></div>
+      </div>
+      <button type="button" class="add-course-btn" id="hvSearchBtn">Tra cứu</button>
+    </div>
+    <div id="hvResult"></div>
+  </div>
+
+  <!-- ============== TAB: KIỂM TRA GIỜ GV ============== -->
+  <div class="tab-panel" id="tab-gv">
+    <div class="gv-picker">
+      <div>
+        <label>Ngày chạy DAT</label>
+        <select id="gvNgaySelect"></select>
+      </div>
+      <div>
+        <label>Khoá</label>
+        <select id="gvCourseSelect"><option value="">Tất cả khoá</option></select>
+      </div>
+      <div>
+        <label>Tên giáo viên</label>
+        <select id="gvTeacherSelect"><option value="">-- Đang tải... --</option></select>
+      </div>
+      <button class="add-course-btn" id="gvSearchBtn">Tra cứu</button>
+      <button type="button" id="gvCaptureBtn" class="gv-capture-btn" title="Sao chép ảnh bảng" aria-label="Sao chép ảnh bảng">
+        <svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 5l1.5-2h5L16 5h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/><circle cx="12" cy="13" r="4"/></svg>
+      </button>
+    </div>
+    <div id="gvLoadStatus" role="status" aria-live="polite" style="font-size:12px;color:var(--ink-soft);margin-bottom:8px;"></div>
+    <div id="gvResult"></div>
+  </div>
+</main>
+
+<!-- Modal thêm khóa học -->
+<div class="modal-overlay" id="addCourseModal">
+  <div class="modal">
+    <h3>Thêm khóa học mới</h3>
+
+    <div class="add-course-section">
+      <div class="add-course-section-title">1. Thêm khóa học (file XML)</div>
+      <input type="file" id="xmlFileInput" accept=".xml" />
+      <div class="modal-status" id="uploadStatus"></div>
+      <button class="btn-submit" id="submitAddCourse" style="width:100%; margin-top:8px;">Tải lên khóa học</button>
+    </div>
+
+    <div class="add-course-section">
+      <div class="add-course-section-title">2. Cập nhật ảnh chân dung (.jpg)</div>
+      <input type="file" id="photoFilesInput" accept="image/jpeg" multiple />
+      <div class="modal-status" id="uploadPhotoStatus"></div>
+      <button class="btn-submit" id="submitUploadPhoto" style="width:100%; margin-top:8px;">Tải ảnh lên</button>
+    </div>
+
+    <div class="add-course-section">
+      <div class="add-course-section-title">3. Học viên chưa có ảnh chân dung</div>
+      <button class="btn-cancel" id="openMissingPhoto" style="width:100%;">📋 Xem danh sách thiếu ảnh</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelAddCourse" style="width:100%;">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal danh sách học viên thiếu ảnh chân dung -->
+<div class="modal-overlay" id="missingPhotoModal">
+  <div class="modal" style="max-width:560px;">
+    <h3>Học viên chưa có ảnh chân dung</h3>
+    <div class="modal-status" id="missingPhotoStatus">Đang tải...</div>
+    <div id="missingPhotoList" style="max-height:50vh; overflow:auto; margin:10px 0;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="closeMissingPhoto">Đóng</button>
+      <button class="btn-submit" id="copyMissingPhoto">Sao chép danh sách mã HV</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal thêm danh sách chia tổ (Excel nhiều sheet) -->
+<div class="modal-overlay" id="importToExcelModal">
+  <div class="modal">
+    <h3>Thêm danh sách chia tổ</h3>
+    <input type="file" id="toExcelFileInput" accept=".xlsx,.xls" />
+    <div class="modal-status" id="importToExcelStatus"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="cancelImportToExcel">Hủy</button>
+      <button class="btn-submit" id="submitImportToExcel">Tải lên</button>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <span class="lightbox-close" id="lightboxClose">&times;</span>
+  <img id="lightboxImg" src="" alt="Ảnh minh chứng" />
+</div>
+
+<!-- Modal xem Tổ đã lưu trữ (quá 3 tháng) -->
+<div class="modal-overlay" id="archiveModal">
+  <div class="modal" style="max-width:640px;">
+    <h3>📦 Tổ đã lưu trữ (dữ liệu quá 3 tháng)</h3>
+    <div class="search-wrap" style="margin-bottom:10px;">
+      <input type="text" id="archiveKhoaTongInput" placeholder="Tìm khóa tổng đã lưu trữ..." autocomplete="off" />
+      <div class="course-dropdown" id="archiveKhoaTongDropdown"></div>
+    </div>
+    <div id="archiveToList"></div>
+    <div id="archiveToDetail"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="closeArchive">Đóng</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="errorSessionsModal">
+  <div class="modal error-list-modal" role="dialog" aria-modal="true" aria-labelledby="errorSessionsTitle">
+    <div class="error-list-title"><h3 id="errorSessionsTitle">⚠ Danh sách phiên lỗi</h3><button class="btn-cancel" id="closeErrorSessions" type="button">Đóng</button></div>
+    <form class="error-list-auth" id="errorSessionsAuth">
+      <input id="errorSessionsPassword" type="password" placeholder="Mật khẩu Admin" aria-label="Mật khẩu Admin" autocomplete="off" required />
+      <button class="add-course-btn" id="loadErrorSessions" type="submit">Xem danh sách</button>
+    </form>
+    <div class="error-list-info" id="errorSessionsStatus" role="status"></div>
+    <div id="errorSessionsContent"></div>
+  </div>
+</div>
+<script>
+  const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyg9wDYk7b8mxbYi0l0jaqonc-sHUl2DouWyqRW-8C-e1FNWAgqhPBt1Y2yT1B41TOHvw/exec';
+
+  /** Dùng cache ngắn cho danh sách lựa chọn, gộp yêu cầu trùng nhau.
+   * Chi tiết phiên luôn gọi API; nút làm mới xoá cache trình duyệt. */
+  const responseCache = new Map();
+  const requestsInFlight = new Map();
+  let cacheGeneration = 0;
+  const choiceCachePrefix = 'DAT_CHOICES_V1:' + WEB_APP_URL + ':';
+  function readChoiceCache(url){
+    try {
+      const entry = JSON.parse(localStorage.getItem(choiceCachePrefix + url) || 'null');
+      const age = entry ? Date.now()-entry.at : Infinity;
+      if (entry && age >= 0 && age < 15*60*1000 && entry.data != null) return entry;
+      localStorage.removeItem(choiceCachePrefix + url);
+    } catch(error) { /* Storage bị chặn hoặc dữ liệu hỏng: gọi API bình thường. */ }
+    return null;
+  }
+  function saveChoiceCache(url, entry){
+    try {
+      const text = JSON.stringify(entry);
+      if (text.length > 200000) return;
+      const keys = Object.keys(localStorage).filter(key=>key.startsWith(choiceCachePrefix));
+      if (keys.length >= 24 && !keys.includes(choiceCachePrefix+url)) {
+        const oldest = keys.sort((a,b) => {
+          try { return JSON.parse(localStorage.getItem(a)).at-JSON.parse(localStorage.getItem(b)).at; }
+          catch(error) { return 0; }
+        })[0];
+        localStorage.removeItem(oldest);
+      }
+      localStorage.setItem(choiceCachePrefix + url, text);
+    } catch(error) { /* Thiếu dung lượng không làm hỏng tra cứu. */ }
+  }
+  function invalidateDataCache(){
+    cacheGeneration++; responseCache.clear(); requestsInFlight.clear();
+    try { Object.keys(localStorage).filter(key=>key.startsWith(choiceCachePrefix)).forEach(key=>localStorage.removeItem(key)); }
+    catch(error) {}
+  }
+  async function requestJson(url, timeoutMs = 45000){
+    const started = performance.now();
+    const action = new URL(url).searchParams.get("action");
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      let res = await fetch(url, { cache:'no-store', signal:controller.signal });
+      // Chỉ thử lại một lần cho lỗi HTTP tạm thời; chung giới hạn 45 giây.
+      if ([404,502,503,504].includes(res.status)) {
+        res = await fetch(url + '&_retry=' + Date.now(), {cache:'no-store', signal:controller.signal});
+      }
+      if (!res.ok) throw new Error('Kết nối trả về lỗi ' + res.status);
+      const data = await res.json();
+      if (data && data.error && data.success !== true) throw new Error(data.error);
+      return data;
+    } catch(err){
+      if (err.name === 'AbortError') throw new Error('Kết nối quá lâu. Bấm Thử lại để tải lại dữ liệu.');
+      throw err;
+    } finally { clearTimeout(timer); console.info("[DAT] " + action + ": " + Math.round(performance.now()-started) + " ms"); }
+  }
+  function showRequestError(err, action){
+    const notice = document.getElementById('requestNotice');
+    notice.style.display = 'block';
+    notice.textContent = 'Không tải được dữ liệu: ' + err.message + ' ';
+    const retry = document.createElement('button');
+    retry.textContent = 'Thử lại'; retry.className = 'add-course-btn secondary';
+    retry.addEventListener('click', () => {
+      notice.style.display = 'none';
+      // Thử lại danh sách học viên ngay trong khoá hiện tại, không tải lại các khoá.
+      if (action === 'student_options') loadHvStudents().catch(() => {});
+      else refreshActiveView();
+    });
+    notice.appendChild(retry);
+  }
+  async function fetchFresh(url){
+    const action = new URL(url).searchParams.get('action');
+    const persistent = ['courses','teacher_filters_by_date','student_options'].includes(action) && new URL(url).searchParams.get('fresh') !== '1';
+    const ttl = persistent ? 900000 : ['courses','khoa_tong_list'].includes(action) ? 300000 :
+      ['teachers_by_date','teacher_filters_by_date','to_by_khoa_tong','students'].includes(action) ? 60000 : 0;
+    const cached = responseCache.get(url) || (persistent ? readChoiceCache(url) : null);
+    if (ttl && cached && Date.now() - cached.at < ttl) return { json:async () => cached.data };
+    const generation = cacheGeneration;
+    const key = generation + ':' + url;
+    let pending = requestsInFlight.get(key);
+    if (!pending){
+      pending = requestJson(url + (url.includes('?') ? '&' : '?') + '_nocache=' + Date.now())
+        .then(data => {
+          if (ttl && generation === cacheGeneration) {
+            const entry = {at:Date.now(),data};
+            responseCache.set(url,entry);
+            if (persistent) saveChoiceCache(url,entry);
+          }
+          return data;
+        });
+      requestsInFlight.set(key,pending);
+    }
+    try { const data = await pending; return { json:async () => data }; }
+    catch(err){ showRequestError(err, action); throw err; }
+    finally { if (requestsInFlight.get(key) === pending) requestsInFlight.delete(key); }
+  }
+
+  let allCourses = [];
+  let cameFromGv = null;
+  let skipGvTabRefresh = false;
+  let cameFromToId = ''; // nhớ Tổ vừa xem, để hiện nút "Quay lại Tổ" ở tab Theo HV
+  let currentKhoaTong = '';
+  let currentToId = '';
+
+  const courseSearch = document.getElementById('courseSearch');
+  const courseDropdown = document.getElementById('courseDropdown');
+  const hvCourseSelect = document.getElementById('hvCourseSelect');
+  const hvStudentInput = document.getElementById('hvStudentInput');
+  const hvStudentDropdown = document.getElementById('hvStudentDropdown');
+  const hvResult = document.getElementById('hvResult');
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const addCourseModal = document.getElementById('addCourseModal');
+  const importToExcelModal = document.getElementById('importToExcelModal');
+
+  /* ---------- Mật khẩu Admin: hỏi khi cần, nhớ lại trong phiên làm việc ---------- */
+  let cachedAdminPassword = sessionStorage.getItem('adminPw') || '';
+
+  function updateLockUI(){
+    document.getElementById('lockAdminBtn').style.display = cachedAdminPassword ? '' : 'none';
+  }
+  document.getElementById('lockAdminBtn').addEventListener('click', () => {
+    cachedAdminPassword = '';
+    sessionStorage.removeItem('adminPw');
+    updateLockUI();
+    alert('Đã khóa lại — lần thao tác Admin tiếp theo sẽ hỏi mật khẩu.');
+  });
+
+  function askAdminPassword(){
+    const pw = prompt('Nhập mật khẩu Admin để tiếp tục:');
+    if (pw === null) return null;
+    cachedAdminPassword = pw;
+    sessionStorage.setItem('adminPw', pw);
+    updateLockUI();
+    return pw;
+  }
+
+  async function callAdminApi(bodyWithoutPassword){
+    let password = cachedAdminPassword || askAdminPassword();
+    if (password === null) return null;
+    while (true){
+      const res = await fetch(WEB_APP_URL, { method:'POST', body: JSON.stringify(Object.assign({}, bodyWithoutPassword, { password })) });
+      const data = await res.json();
+      if (data.success !== false || !/mật khẩu|Admin/i.test(data.error || '')) {
+        if (data.success){
+          invalidateDataCache(); currentToOptionsKhoaTong = null;
+          if (bodyWithoutPassword.action === 'upload_photo') imageCache.clear();
+        }
+        return data;
+      }
+      alert(data.error);
+      if (/Chưa cấu hình/i.test(data.error)) return data;
+      password = askAdminPassword();
+      if (password === null) return null;
+    }
+  }
+
+  /* Danh sách lỗi chỉ tải khi Admin nhập mật khẩu; không gọi khi mở web. */
+  const errorSessionsModal = document.getElementById('errorSessionsModal');
+  const errorSessionsPassword = document.getElementById('errorSessionsPassword');
+  const errorSessionsStatus = document.getElementById('errorSessionsStatus');
+  const errorSessionsContent = document.getElementById('errorSessionsContent');
+  let errorListRequest = null, errorListGeneration = 0;
+  function closeErrorSessionList(){
+    errorListGeneration++;
+    if (errorListRequest) errorListRequest.abort();
+    errorSessionsPassword.value = '';
+    errorSessionsContent.innerHTML = '';
+    errorSessionsStatus.textContent = '';
+    errorSessionsModal.classList.remove('open');
+  }
+  document.getElementById('errorSessionsBtn').addEventListener('click', () => {
+    closeErrorSessionList();
+    errorSessionsModal.classList.add('open');
+    errorSessionsStatus.textContent = 'Nhập mật khẩu Admin để xem phiên lỗi trong 15 ngày gần nhất. Phiên cũ chỉ rời danh sách này; dữ liệu DAT vẫn giữ nguyên.';
+    errorSessionsPassword.focus();
+  });
+  document.getElementById('closeErrorSessions').addEventListener('click', closeErrorSessionList);
+  errorSessionsModal.addEventListener('click', e => { if (e.target === errorSessionsModal) closeErrorSessionList(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && errorSessionsModal.classList.contains('open')) closeErrorSessionList(); });
+  document.getElementById('errorSessionsAuth').addEventListener('submit', async e => {
+    e.preventDefault();
+    if (errorListRequest) errorListRequest.abort();
+    const generation = ++errorListGeneration;
+    const controller = new AbortController(); errorListRequest = controller;
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    const button = document.getElementById('loadErrorSessions'); button.disabled = true;
+    errorSessionsContent.innerHTML = ''; errorSessionsStatus.textContent = 'Đang tải danh sách phiên lỗi…';
+    const password = errorSessionsPassword.value; errorSessionsPassword.value = '';
+    try {
+      const response = await fetch(WEB_APP_URL, {method:'POST', body:JSON.stringify({action:'error_sessions',password}), signal:controller.signal});
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      const data = await response.json();
+      if (generation !== errorListGeneration) return;
+      if (!data.success) throw new Error(data.error || 'Không tải được danh sách. Hãy cập nhật mã Apps Script và triển khai phiên bản mới.');
+      const sessions = data.sessions || [];
+      const dateLabel = day => String(day || '').split('-').reverse().join('/');
+      errorSessionsStatus.textContent = `Từ ${dateLabel(data.from)} đến ${dateLabel(data.to)} (giờ Việt Nam): ${sessions.length} phiên lỗi. Mới nhất ở trên. Phiên quá 15 ngày chỉ rời danh sách, không xoá dữ liệu DAT.`;
+      if (!sessions.length) {errorSessionsContent.textContent = 'Không có phiên lỗi trong khoảng thời gian này.'; return;}
+      const cell = value => escapeHtml(value == null || value === '' ? '—' : value);
+      const time = value => {const d = new Date(value); return isNaN(d.getTime()) ? '—' : d.toLocaleString('vi-VN',{timeZone:'Asia/Ho_Chi_Minh',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});};
+      errorSessionsContent.innerHTML = `<div class="table-wrap"><table class="error-list-table"><thead><tr><th>STT</th><th>Ngày / giờ</th><th>Khoá</th><th>Học viên</th><th>Giáo viên</th><th>Biển số</th><th>Thời gian<br>(giờ)</th><th>Quãng đường<br>(km)</th><th>Ghi chú lỗi</th></tr></thead><tbody>${sessions.map((session,index) => `<tr class="${session.Deleted ? 'cancelled' : ''}"><td>${index+1}</td><td>${cell(time(session.ThoiDiemDangNhap))}</td><td>${cell(session.KhoaHoc || session.MaKhoaHoc)}</td><td>${cell(session.HoTen)}<br><small>${cell(session.MaDK)}</small></td><td>${cell(session.HoTenGV)}</td><td>${cell(session.BienSo)}</td><td>${(Math.max(0,Number(session.TongThoiGian)||0)/3600).toFixed(2)}</td><td>${(Number(session.TongQuangDuong)||0).toFixed(2)}</td><td class="error-list-note">${cell(session.Notes)}<br><small>ID: ${cell(session.ID)}</small></td></tr>`).join('')}</tbody></table></div>`;
+    } catch(error) {
+      if (generation === errorListGeneration) errorSessionsStatus.textContent = error.name === 'AbortError' ? 'Yêu cầu quá lâu. Hãy thử lại sau vài giây.' : error.message;
+    } finally {
+      clearTimeout(timeout);
+      if (errorListRequest === controller) errorListRequest = null;
+      button.disabled = false;
+    }
+  });
+
+  /* ---------- Tabs ---------- */
+  const tabAlreadyLoaded = { to: false, hv: false, gv: false };
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+
+      const tab = btn.dataset.tab;
+      if (tabAlreadyLoaded[tab]) {
+        if (tab === 'hv' && currentHvMaDK) performHvSearch(currentHvMaDK);
+        if (tab === 'gv' && !skipGvTabRefresh && gvTeacherSelect.value && gvResult.querySelector('table.gv-table')) loadGvSessions();
+      }
+      if (!tabAlreadyLoaded[tab]) {
+        tabAlreadyLoaded[tab] = true;
+        if (tab === 'to') loadKhoaTongList();
+        else if (tab === 'hv') loadCourses();
+        else if (tab === 'gv') { buildGvNgayOptions(); loadGvTeachers(); }
+      }
+    });
+  });
+  function switchTab(name){ document.querySelector(`.tab-btn[data-tab="${name}"]`).click(); }
+
+  /* ---------- Tab: Kiểm tra giờ GV ---------- */
+  const gvNgaySelect = document.getElementById('gvNgaySelect');
+  const gvCourseSelect = document.getElementById('gvCourseSelect');
+  const gvTeacherSelect = document.getElementById('gvTeacherSelect');
+  const gvResult = document.getElementById('gvResult');
+
+  function isoDate(d){
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+  function labelDate(d, tenGoi){
+    const s = String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    return tenGoi ? `${s} (${tenGoi})` : s;
+  }
+
+  function buildGvNgayOptions(){
+    const now = new Date();
+    const opts = [];
+    for (let i = 0; i <= 2; i++){
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const tenGoi = i === 0 ? 'Hôm nay' : (i === 1 ? 'Hôm qua' : '');
+      opts.push({ value: isoDate(d), label: labelDate(d, tenGoi) });
+    }
+    gvNgaySelect.innerHTML = opts.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+  }
+
+  let gvFilterRequest = 0;
+  let gvFilterData = {courses:[], teachers:[], teachersByCourse:{}};
+  function renderGvTeacherOptions(teacher = ''){
+    const list = gvCourseSelect.value ? (gvFilterData.teachersByCourse[gvCourseSelect.value] || []) : gvFilterData.teachers;
+    gvTeacherSelect.innerHTML = '<option value="">' + (list.length ? '-- Chọn giáo viên --' : '-- Không có dữ liệu --') + '</option>' +
+      list.map(gv => `<option value="${escapeHtml(gv)}">${escapeHtml(gv)}</option>`).join('');
+    if (list.includes(teacher)) gvTeacherSelect.value = teacher;
+  }
+  async function loadGvTeachers(forceFresh = false){
+    const request = ++gvFilterRequest;
+    const day = gvNgaySelect.value, course = gvCourseSelect.value, teacher = gvTeacherSelect.value;
+    const started = performance.now();
+    let loaded = false;
+    const status = document.getElementById('gvLoadStatus');
+    gvTeacherSelect.disabled = true;
+    document.getElementById('gvSearchBtn').disabled = true;
+    status.textContent = 'Đang tải danh sách giáo viên…';
+    const slowTimer = setTimeout(() => {
+      if (request === gvFilterRequest) status.textContent = 'Máy chủ phản hồi chậm. Đang chờ danh sách giáo viên…';
+    }, 8000);
+    gvTeacherSelect.innerHTML = '<option value="">-- Đang tải... --</option>';
+    gvResult.innerHTML = '';
+    try{
+      const res = await fetchFresh(`${WEB_APP_URL}?action=teacher_filters_by_date&ngay=${encodeURIComponent(day)}${forceFresh ? "&fresh=1" : ""}`);
+      const data = await res.json();
+      if (request !== gvFilterRequest || day !== gvNgaySelect.value) return;
+      gvFilterData = data;
+      gvCourseSelect.innerHTML = '<option value="">Tất cả khoá</option>' + data.courses.map(c=>`<option value="${escapeHtml(c.key)}">${escapeHtml(c.label)}</option>`).join('');
+      if (data.courses.some(c=>c.key === course)) gvCourseSelect.value = course;
+      renderGvTeacherOptions(teacher);
+      loaded = true;
+      status.textContent = 'Đã tải danh sách: ' + ((performance.now()-started)/1000).toFixed(1) + ' giây';
+    }catch(err){
+      if (request === gvFilterRequest) {
+        gvTeacherSelect.innerHTML = '<option value="">-- Lỗi tải danh sách --</option>';
+        status.textContent = 'Không tải được danh sách. Bấm biểu tượng làm mới để thử lại.';
+      }
+    }finally{
+      clearTimeout(slowTimer);
+      if (request === gvFilterRequest) {
+        gvTeacherSelect.disabled = false;
+        document.getElementById('gvSearchBtn').disabled = !loaded || !gvFilterData.teachers.length;
+      }
+    }
+  }
+  gvNgaySelect.addEventListener('change', () => { gvRequestId++; gvCourseSelect.value = ''; loadGvTeachers(); });
+  gvCourseSelect.addEventListener('change', () => { gvRequestId++; const teacher = gvTeacherSelect.value; renderGvTeacherOptions(teacher); gvResult.innerHTML = ''; });
+
+  let gvRequestId = 0;
+  document.getElementById('gvSearchBtn').addEventListener('click', loadGvSessions);
+  async function loadGvSessions() {
+    const requestId = ++gvRequestId;
+    const ngay = gvNgaySelect.value;
+    const hoTenGV = gvTeacherSelect.value;
+    const maKhoaHoc = gvCourseSelect.value;
+    if (!hoTenGV){ alert('Vui lòng chọn giáo viên.'); return; }
+    gvResult.innerHTML = '<div class="empty-state">Đang tra cứu...</div>';
+
+    try{
+      const res = await fetchFresh(`${WEB_APP_URL}?action=sessions_by_teacher_date&hoTenGV=${encodeURIComponent(hoTenGV)}&ngay=${encodeURIComponent(ngay)}&maKhoaHoc=${encodeURIComponent(maKhoaHoc)}`);
+      const data = await res.json();
+      if (requestId !== gvRequestId || ngay !== gvNgaySelect.value || hoTenGV !== gvTeacherSelect.value || maKhoaHoc !== gvCourseSelect.value) return;
+      const sessions = data.sessions || [];
+
+      if (!sessions.length){
+        gvResult.innerHTML = '<div class="empty-state">Giáo viên này không có phiên học nào trong ngày đã chọn.</div>';
+        return;
+      }
+
+      const GIOI_HAN_GIAY = 10 * 3600; // 10 giờ
+      const quaGioi = (data.tongGioGVTrongNgay ?? data.tongThoiGian) > GIOI_HAN_GIAY;
+
+      const rowsHtml = sessions.map((s, i) => {
+        const gioSo = s.TongThoiGian / 3600;
+        const vanToc = gioSo > 0 ? s.TongQuangDuong / gioSo : null;
+        const vanTocText = vanToc === null ? '—' : vanToc.toFixed(1);
+        const vanTocClass = vanToc !== null && vanToc < 20 ? ' class="num slow-speed"' : ' class="num"';
+        return `
+        <tr class="${sessionNotes(s) ? 'transmission-error-row' : ''}${s.IsDeleted ? ' gv-session-deleted' : ''}">
+          <td data-label="Khóa">${escapeHtml(s.KhoaHoc || '—')}</td>
+          <td data-label="STT">${i + 1}</td>
+          <td data-label="Họ tên"><button type="button" class="gv-student-link" data-madk="${escapeHtml(s.MaDK || '')}" data-course="${escapeHtml(s.CourseKey || '')}" ${s.MaDK ? '' : 'disabled'} title="Xem tổng DAT học viên">${escapeHtml(s.HoTen)}</button></td>
+          <td data-label="Biển số">${escapeHtml(s.BienSo)}</td>
+          <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
+          <td class="num" data-label="Quãng đường">${Number(s.TongQuangDuong).toFixed(2)}</td>
+          <td${vanTocClass} data-label="Vận tốc tb">${vanTocText}</td>
+          <td class="gv-datetime" data-label="Đăng nhập">${formatGvDateTime(s.ThoiDiemDangNhap)}</td>
+          <td class="gv-datetime" data-label="Đăng xuất">${formatGvDateTime(s.ThoiDiemDangXuat)}</td>
+          <td class="gv-session-note${sessionNotes(s) ? ' has-error' : ''}" data-label="Ghi chú">${escapeHtml(sessionNotes(s))}</td>
+          <td data-label="Xoá">${sessionActionButtons(s)}</td>
+
+        </tr>
+      `;
+      }).join('');
+
+      gvResult.innerHTML = `
+        ${quaGioi ? `<div class="gv-warning">⚠️ Giáo viên "${escapeHtml(hoTenGV)}" đã chạy DAT quá 10 giờ trong ngày ${ngay.split('-').reverse().join('/')} (tổng ${fmtHours(data.tongGioGVTrongNgay ?? data.tongThoiGian)}).</div>` : ''}
+        <div class="table-wrap gv-table-wrap">
+          <table class="gv-table">
+            <thead>
+              <tr><th>Khóa</th><th>STT</th><th>Họ tên</th><th>Biển<br>số</th><th>Thời gian<br>(giờ)</th><th>Quãng<br>đường (km)</th><th>Vận tốc<br>tb (km/h)</th><th>Đăng<br>nhập</th><th>Đăng<br>xuất</th><th>Ghi chú</th><th>Xoá</th></tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+              <tr class="gv-total-row${quaGioi ? ' over-limit' : ''}">
+                <td colspan="4">Tổng cộng</td>
+                <td class="num">${fmtHours(data.tongThoiGian)}</td>
+                <td class="num">${Number(data.tongQuangDuong).toFixed(2)}</td>
+                <td colspan="5"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+      gvResult.querySelectorAll('.gv-student-link').forEach(link => {
+        link.addEventListener('click', async () => {
+          cameFromGv = {day:ngay, course:maKhoaHoc, teacher:hoTenGV, scrollLeft:gvResult.querySelector('.table-wrap').scrollLeft, scrollY:window.scrollY};
+          cameFromToId = '';
+          hvDetailRequest++; currentHvMaDK = '';
+          // Tải danh sách khoá một lần ở đây, tránh lượt tải tự động khi chuyển tab.
+          tabAlreadyLoaded.hv = true;
+          switchTab('hv');
+          await loadCourses();
+          hvCourseSelect.value = link.dataset.course;
+          hvStudentInput.value = link.textContent;
+          loadHvStudents().catch(() => {});
+          await performHvSearch(link.dataset.madk);
+        });
+      });
+      bindSessionActions(gvResult, async () => {
+        if (ngay === gvNgaySelect.value && hoTenGV === gvTeacherSelect.value && maKhoaHoc === gvCourseSelect.value) await loadGvSessions();
+      });
+    }catch(err){
+      if (requestId !== gvRequestId) return;
+      gvResult.innerHTML = '<div class="empty-state">Lỗi tra cứu: ' + escapeHtml(err.message) + '</div>';
+    }
+  }
+
+  let gvCaptureLibraryPromise = null;
+  function loadGvCaptureLibrary(){
+    if (window.html2canvas) return Promise.resolve(window.html2canvas);
+    if (gvCaptureLibraryPromise) return gvCaptureLibraryPromise;
+    gvCaptureLibraryPromise = new Promise((resolve,reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      const timer = setTimeout(() => { script.remove(); reject(new Error('Tải công cụ chụp quá lâu. Vui lòng thử lại.')); },15000);
+      script.onload = () => { clearTimeout(timer); if (window.html2canvas) resolve(window.html2canvas); else reject(new Error('Không mở được công cụ chụp.')); };
+      script.onerror = () => { clearTimeout(timer); script.remove(); reject(new Error('Không tải được công cụ chụp. Kiểm tra kết nối mạng và thử lại.')); };
+      document.head.appendChild(script);
+    }).catch(error => { gvCaptureLibraryPromise = null; throw error; });
+    return gvCaptureLibraryPromise;
+  }
+  async function captureGvTableBlob(table){
+    let stage = null;
+    try {
+      // Chốt dữ liệu ngay khi bấm. Chỉ giữ các cột từ Khoá tới Ghi chú.
+      stage = document.createElement('div');
+      stage.className = 'gv-export-stage';
+      stage.style.width = 'max-content';
+      const copy = table.cloneNode(true);
+      copy.querySelectorAll('tr').forEach(row => {
+        const last = row.lastElementChild;
+        if (!last) return;
+        if (row.classList.contains('gv-total-row')) last.colSpan = Math.max(1,last.colSpan - 1);
+        else last.remove();
+      });
+      stage.appendChild(copy);
+      document.body.appendChild(stage);
+      const capture = await loadGvCaptureLibrary();
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const width = Math.ceil(Math.max(stage.scrollWidth,stage.getBoundingClientRect().width));
+      const height = Math.ceil(Math.max(stage.scrollHeight,stage.getBoundingClientRect().height));
+      const scale = Math.min(2,16000/width,16000/height,Math.sqrt(16000000/(width*height)));
+      const canvas = await capture(stage, {
+        width,height,scale,backgroundColor:'#ffffff',logging:false,
+        windowWidth:Math.max(document.documentElement.clientWidth,width + 24),
+        windowHeight:Math.max(document.documentElement.clientHeight,height + 24),
+        scrollX:0,scrollY:0
+      });
+      return await new Promise((resolve,reject) => canvas.toBlob(value => value ? resolve(value) : reject(new Error('Không tạo được ảnh bảng.')), 'image/png'));
+    } finally { if (stage) stage.remove(); }
+  }
+  document.getElementById('gvCaptureBtn').addEventListener('click', async () => {
+    const table = gvResult.querySelector('table.gv-table');
+    if (!table) { alert('Vui lòng tra cứu để có bảng dữ liệu trước khi chụp.'); return; }
+    if (!window.isSecureContext || !navigator.clipboard || !navigator.clipboard.write || !window.ClipboardItem) {
+      alert('Trình duyệt này chưa hỗ trợ sao chép ảnh. Hãy mở web qua HTTPS bằng Chrome hoặc Edge.'); return;
+    }
+    const button = document.getElementById('gvCaptureBtn');
+    const originalIcon = button.innerHTML;
+    button.disabled = true; button.setAttribute('aria-busy','true');
+    try {
+      const blobPromise = captureGvTableBlob(table);
+      blobPromise.catch(() => {});
+      // Gọi clipboard ngay trong thao tác bấm; ảnh được cung cấp khi render xong.
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blobPromise})]);
+      button.innerHTML = '✓'; button.title = 'Đã sao chép ảnh — dán bằng Ctrl + V';
+      setTimeout(() => { button.innerHTML = originalIcon; button.title = 'Sao chép ảnh bảng'; },2500);
+    } catch(error) {
+      alert('Chưa sao chép được ảnh. Nếu trình duyệt hỏi quyền clipboard, hãy cho phép rồi bấm lại. Chi tiết: ' + error.message);
+    } finally { button.disabled = false; button.removeAttribute('aria-busy'); }
+  });
+
+  function formatGvDateTime(val){
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return escapeHtml(String(val || '—'));
+    const p = n => String(n).padStart(2,'0');
+    return `<span>${p(d.getHours())}:${p(d.getMinutes())}</span><span>${p(d.getDate())}/${p(d.getMonth()+1)}</span>`;
+  }
+
+  function formatDateTimeVN(val){
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return String(val || '');
+    const p = n => String(n).padStart(2, '0');
+    return `${p(d.getHours())}:${p(d.getMinutes())} ${p(d.getDate())}/${p(d.getMonth()+1)}`;
+  }
+
+  /* ---------- Modal: Tổ đã lưu trữ ---------- */
+  const archiveModal = document.getElementById('archiveModal');
+  const archiveKhoaTongInput = document.getElementById('archiveKhoaTongInput');
+  const archiveKhoaTongDropdown = document.getElementById('archiveKhoaTongDropdown');
+  const archiveToList = document.getElementById('archiveToList');
+  const archiveToDetail = document.getElementById('archiveToDetail');
+  let allArchivedKhoaTong = [];
+
+  document.getElementById('openArchive').addEventListener('click', async () => {
+    archiveModal.classList.add('open');
+    archiveToList.innerHTML = '';
+    archiveToDetail.innerHTML = '';
+    archiveKhoaTongInput.value = '';
+    try{
+      const res = await fetchFresh(`${WEB_APP_URL}?action=archived_khoa_tong_list`);
+      allArchivedKhoaTong = await res.json();
+    }catch(err){ allArchivedKhoaTong = []; }
+  });
+  document.getElementById('closeArchive').addEventListener('click', () => archiveModal.classList.remove('open'));
+
+  function renderArchiveKhoaTongDropdown(list){
+    archiveKhoaTongDropdown.innerHTML = list.map(k => `<div class="dropdown-item" data-khoa="${escapeHtml(k)}">${escapeHtml(k)}</div>`).join('');
+    archiveKhoaTongDropdown.style.display = list.length ? 'block' : 'none';
+    archiveKhoaTongDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+      item.addEventListener('click', () => {
+        archiveKhoaTongInput.value = item.dataset.khoa;
+        archiveKhoaTongDropdown.style.display = 'none';
+        loadArchivedToList(item.dataset.khoa);
+      });
+    });
+  }
+  archiveKhoaTongInput.addEventListener('focus', () => renderArchiveKhoaTongDropdown(allArchivedKhoaTong));
+  archiveKhoaTongInput.addEventListener('input', () => {
+    const q = archiveKhoaTongInput.value.toLowerCase();
+    renderArchiveKhoaTongDropdown(allArchivedKhoaTong.filter(k => k.toLowerCase().includes(q)));
+  });
+
+  async function loadArchivedToList(khoaTong){
+    archiveToDetail.innerHTML = '';
+    archiveToList.innerHTML = '<div class="empty-state">Đang tải...</div>';
+    try{
+      const res = await fetchFresh(`${WEB_APP_URL}?action=archived_to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
+      const list = await res.json();
+      if (!list.length){ archiveToList.innerHTML = '<div class="empty-state">Không có Tổ nào được lưu trữ cho khóa này.</div>'; return; }
+      archiveToList.innerHTML = `<div class="to-grid" style="margin-top:10px;">${list.map(t => `
+        <div class="to-card archive-to-card" data-toid="${escapeHtml(t.ToId)}" style="background:#E7E7E7;">
+          <div class="name">${escapeHtml(t.TenTo)}</div>
+          <div class="count num">${t.SoLuongHocVien}</div>
+        </div>
+      `).join('')}</div>`;
+      archiveToList.querySelectorAll('.archive-to-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const t = list.find(x => x.ToId === card.dataset.toid);
+          renderArchivedToDetail(t);
+        });
+      });
+    }catch(err){
+      archiveToList.innerHTML = '<div class="empty-state">Lỗi tải danh sách: ' + err.message + '</div>';
+    }
+  }
+
+  function renderArchivedToDetail(t){
+    if (!t){ archiveToDetail.innerHTML = ''; return; }
+    const rows = (t.Students || []).map(s => `
+      <tr>
+        <td>${escapeHtml(s.MaDK)}</td><td>${escapeHtml(s.HoTen)}</td><td>${escapeHtml(s.Khoa||'')}</td>
+        <td class="num">${fmtHours(s.TongThoiGian)}</td><td class="num">${Number(s.TongQuangDuong).toFixed(2)} km</td>
+        <td class="num">${fmtHours(s.GioDem)}</td><td class="num">${fmtHours(s.GioTuDong)}</td><td>${escapeHtml(s.GhiChu||'')}</td>
+      </tr>
+    `).join('');
+    archiveToDetail.innerHTML = `
+      <div style="margin-top:14px; font-size:13px; color:var(--ink-soft);">📦 Đã lưu trữ ngày ${formatDateTimeVN(t.NgayLuuTru)} — chỉ còn bảng tổng hợp, không còn phiên học/ảnh chi tiết.</div>
+      <div class="table-wrap" style="margin-top:8px; max-height:40vh; overflow:auto;">
+        <table>
+          <thead><tr><th>Mã HV</th><th>Họ tên</th><th>Khóa</th><th>Thời gian</th><th>Quãng đường</th><th>Giờ đêm</th><th>Giờ tự động</th><th>Ghi chú</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  /** Tách "B.01 - K58" -> { hang, soK } để sắp xếp khóa học DAT theo hạng rồi số K */
+  function parseCourseLabel(ten){
+    const parts = String(ten || '').split('-');
+    const hang = (parts[0] || '').trim().toUpperCase().replace(/\./g, '').replace(/\s+/g, '');
+    const kMatch = (parts[1] || '').match(/(\d+)/);
+    return { hang, soK: kMatch ? parseInt(kMatch[1], 10) : 999999 };
+  }
+  function sortCourses(list){
+    const HANG_ORDER = { 'B01': 0, 'B': 1, 'C1': 2 };
+    return list.slice().sort((a, b) => {
+      const pa = parseCourseLabel(a.TenKhoaHoc), pb = parseCourseLabel(b.TenKhoaHoc);
+      const oa = HANG_ORDER[pa.hang] !== undefined ? HANG_ORDER[pa.hang] : 99;
+      const ob = HANG_ORDER[pb.hang] !== undefined ? HANG_ORDER[pb.hang] : 99;
+      return oa !== ob ? oa - ob : pa.soK - pb.soK;
+    });
+  }
+
+  async function loadCourses(){
+    const res = await fetchFresh(`${WEB_APP_URL}?action=courses`);
+    const selectedCourse = hvCourseSelect.value;
+    allCourses = sortCourses(await res.json());
+    renderCourseDropdown(allCourses);
+    hvCourseSelect.innerHTML = '<option value="">-- Chọn khóa học --</option>' +
+      allCourses.map(c => `<option value="${c.MaKhoaHoc}">${escapeHtml(c.TenKhoaHoc)}</option>`).join('');
+    if (allCourses.some(c => String(c.MaKhoaHoc) === selectedCourse)) hvCourseSelect.value = selectedCourse;
+  }
+  function renderCourseDropdown(list){
+    courseDropdown.innerHTML = list.map(c => `<div data-ma="${c.MaKhoaHoc}">${escapeHtml(c.TenKhoaHoc)} <span class="num" style="color:#8a938d;font-size:11px;">(${c.MaKhoaHoc})</span></div>`).join('');
+    courseDropdown.querySelectorAll('div').forEach(div => {
+      div.addEventListener('click', () => {
+        courseSearch.value = ''; courseDropdown.classList.remove('open');
+        switchTab('hv');
+        hvCourseSelect.value = div.dataset.ma;
+        hvCourseSelect.dispatchEvent(new Event('change'));
+      });
+    });
+  }
+  courseSearch.addEventListener('focus', () => { if (allCourses.length) courseDropdown.classList.add('open'); });
+  courseSearch.addEventListener('input', () => {
+    const q = courseSearch.value.trim().toLowerCase();
+    renderCourseDropdown(allCourses.filter(c => c.TenKhoaHoc.toLowerCase().includes(q) || c.MaKhoaHoc.toLowerCase().includes(q)));
+  });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.search-wrap')) document.querySelectorAll('.course-dropdown').forEach(d => d.classList.remove('open')); });
+
+  /* ================== TAB: THEO TỔ ================== */
+
+  function showToView(view){
+    document.getElementById('toKhoaView').style.display = view === 'khoa' ? 'block' : 'none';
+    document.getElementById('toGridView').style.display = view === 'grid' ? 'block' : 'none';
+    document.getElementById('toDetailView').style.display = view === 'detail' ? 'block' : 'none';
+  }
+
+  let allKhoaTong = [];
+  async function loadKhoaTongList(){
+    try {
+      const res = await fetchFresh(`${WEB_APP_URL}?action=khoa_tong_list`);
+      const json = await res.json();
+      if (json && json.error) { console.error('khoa_tong_list error:', json.error); allKhoaTong = []; return; }
+      allKhoaTong = json;
+    } catch (err) {
+      console.error('Lỗi tải danh sách khóa tổng:', err);
+      allKhoaTong = [];
+    }
+  }
+  let pendingKhoaTong = '';
+  function renderKhoaTongDropdown(list){
+    const dd = document.getElementById('khoaTongDropdown');
+    if (!list.length){ dd.innerHTML = `<div style="color:var(--ink-soft);cursor:default;">Chưa có khóa nào — bấm "+ Ds chia tổ"</div>`; }
+    else {
+      dd.innerHTML = list.map(k => `<div data-kt="${escapeHtml(k.KhoaTong)}">${escapeHtml(k.KhoaTong)} <span class="num" style="color:#8a938d;font-size:11px;">(${k.SoLuongTo} tổ)</span></div>`).join('');
+      dd.querySelectorAll('div[data-kt]').forEach(div => {
+        div.addEventListener('click', () => {
+          pendingKhoaTong = div.dataset.kt;
+          document.getElementById('khoaTongInput').value = pendingKhoaTong;
+          dd.classList.remove('open');
+        });
+      });
+    }
+    dd.classList.add('open');
+  }
+  document.getElementById('khoaTongInput').addEventListener('focus', () => renderKhoaTongDropdown(allKhoaTong));
+  document.getElementById('khoaTongInput').addEventListener('input', (e) => {
+    pendingKhoaTong = '';
+    const q = e.target.value.trim().toLowerCase();
+    renderKhoaTongDropdown(allKhoaTong.filter(k => k.KhoaTong.toLowerCase().includes(q)));
+  });
+
+  document.getElementById('toSearchBtn').addEventListener('click', async () => {
+    const value = document.getElementById('khoaTongInput').value.trim();
+    const course = allKhoaTong.find(k => k.KhoaTong === pendingKhoaTong && k.KhoaTong === value) ||
+      allKhoaTong.find(k => normalizeVN(k.KhoaTong) === normalizeVN(value));
+    if (!course) { alert('Vui lòng chọn một khoá trong danh sách trước khi tra cứu.'); return; }
+    const button = document.getElementById('toSearchBtn');
+    document.getElementById('khoaTongDropdown').classList.remove('open');
+    button.disabled = true;
+    try { await openKhoaTongGrid(course.KhoaTong); } finally { button.disabled = false; }
+  });
+
+  async function openKhoaTongGrid(khoaTong){
+    currentKhoaTong = khoaTong;
+    showToView('grid');
+    document.getElementById('toGridTitle').textContent = khoaTong;
+    const grid = document.getElementById('toGrid');
+    grid.innerHTML = '<div style="grid-column:1/-1;color:var(--ink-soft);">Đang tải...</div>';
+    const res = await fetchFresh(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(khoaTong)}`);
+    const list = await res.json();
+    currentToOptions = list; // lưu lại để openToDetail dùng chung, khỏi gọi lại API
+    currentToOptionsKhoaTong = khoaTong;
+    grid.innerHTML = list.map(t => `
+      <div class="to-card" data-toid="${escapeHtml(t.ToId)}" style="background:${t.Color || '#EEE'};">
+        <button type="button" class="to-card-edit" data-toid="${escapeHtml(t.ToId)}" data-tenhientai="${escapeHtml(t.TenTo)}" title="Sửa tên Tổ (Admin)">✎</button>
+        <div class="name">${escapeHtml(t.TenTo)}</div>
+        <div class="count num">${t.SoLuongHocVien}</div>
+      </div>
+    `).join('') || '<div class="empty-state">Khóa này chưa có Tổ nào.</div>';
+    grid.querySelectorAll('.to-card').forEach(card => {
+      card.addEventListener('click', () => openToDetail(card.dataset.toid));
+    });
+    grid.querySelectorAll('.to-card-edit').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const toId = btn.dataset.toid;
+        const tenHienTai = btn.dataset.tenhientai;
+        const tenMoi = prompt('Sửa tên Tổ (có thể gồm tên Tổ, tên giáo viên, biển số...):', tenHienTai);
+        if (tenMoi === null) return;
+        const ten = tenMoi.trim();
+        if (!ten || ten === tenHienTai) return;
+        const data = await callAdminApi({ action:'update_to_ten', toId, tenTo: ten });
+        if (!data) return;
+        if (data.success === false){ alert('Lỗi: ' + data.error); return; }
+        openKhoaTongGrid(currentKhoaTong);
+      });
+    });
+  }
+  document.getElementById('backToKhoaView').addEventListener('click', () => showToView('khoa'));
+  document.getElementById('backToGrid').addEventListener('click', () => openKhoaTongGrid(currentKhoaTong));
+
+  document.getElementById('deleteKhoaTongBtn').addEventListener('click', async () => {
+    if (!confirm(`Xóa hẳn khóa "${currentKhoaTong}"? Toàn bộ Tổ trong khóa này sẽ bị xóa (học viên sẽ chuyển về "chưa phân tổ", không xóa thông tin học viên).`)) return;
+    const data = await callAdminApi({ action:'delete_khoa_tong', khoaTong: currentKhoaTong });
+    if (!data) return;
+    if (data.success){
+      alert(`Đã xóa ${data.soToDaXoa} tổ, ${data.soHocVienBoPhanTo} học viên được đưa về "chưa phân tổ".`);
+      await loadKhoaTongList();
+      showToView('khoa');
+    } else {
+      alert('Lỗi: ' + data.error);
+    }
+  });
+
+  let currentToOptions = []; // danh sách Tổ cùng Khóa tổng, dùng cho dropdown "chuyển tổ"
+  let currentToOptionsKhoaTong = null; // Khóa tổng mà currentToOptions đang tương ứng
+
+  async function openToDetail(toId){
+    currentToId = toId;
+    showToView('detail');
+    document.getElementById('toDetailHead').innerHTML = '<div style="color:var(--ink-soft);">Đang tải...</div>';
+    document.getElementById('toDetailBody').innerHTML = '';
+
+    const [infoRes, studentsRes] = await Promise.all([
+      fetchFresh(`${WEB_APP_URL}?action=to_info&toId=${encodeURIComponent(toId)}`),
+      fetchFresh(`${WEB_APP_URL}?action=students_by_to&toId=${encodeURIComponent(toId)}`)
+    ]);
+    const info = await infoRes.json();
+    const students = await studentsRes.json();
+    if (info) currentKhoaTong = info.KhoaTong || currentKhoaTong;
+
+    // currentToOptions (danh sách Tổ cùng khóa, dùng cho dropdown chuyển tổ) thường đã có
+    // sẵn từ lúc mở lưới Tổ — chỉ gọi lại API nếu cache đang lệch khóa (VD nhảy thẳng từ
+    // tab "Theo HV" sang xem Tổ, bỏ qua bước xem lưới).
+    if (currentToOptionsKhoaTong !== currentKhoaTong) {
+      const toListRes = await fetchFresh(`${WEB_APP_URL}?action=to_by_khoa_tong&khoaTong=${encodeURIComponent(currentKhoaTong)}`);
+      currentToOptions = await toListRes.json();
+      currentToOptionsKhoaTong = currentKhoaTong;
+    }
+
+    renderToDetailHead(info, students);
+    renderToDetailTable(students);
+  }
+
+  /** Màu nền phân biệt học viên theo từng Khóa con (K69, K70...) */
+  const KHOA_ROW_COLORS = ['#FFF9EC', '#EAF3FB', '#F6EEFB', '#EFFAF0'];
+  function getKhoaRowColor(khoaList, khoa){
+    if (!khoa) return '';
+    const i = khoaList.indexOf(khoa);
+    return i === -1 ? '' : KHOA_ROW_COLORS[i % KHOA_ROW_COLORS.length];
+  }
+
+  function renderToDetailHead(info, students){
+    const head = document.getElementById('toDetailHead');
+    if (!info){ head.innerHTML = '<div>Không tìm thấy thông tin Tổ.</div>'; return; }
+
+    // Danh sách Khóa con thực tế có trong Tổ (K69, K70...), lấy theo thứ tự xuất hiện
+    const khoaList = [...new Set(students.map(s => s.Khoa).filter(k => k))];
+    let ngayTheoKhoa = {};
+    try { ngayTheoKhoa = JSON.parse(info.NgayTheoKhoa || '{}'); } catch(e) { ngayTheoKhoa = {}; }
+
+    const khoaKeys = khoaList.length ? khoaList : ['_'];
+
+    function dateFieldHtml(khoa, loai, label){
+      const val = (ngayTheoKhoa[khoa] && ngayTheoKhoa[khoa][loai]) || '';
+      return `
+        <div class="to-date-field" data-khoa="${escapeHtml(khoa)}" data-loai="${loai}">
+          <label>${escapeHtml(label)}</label>
+          <div class="to-date-display">
+            <span class="to-date-value${val ? '' : ' empty'}">${val ? escapeHtml(val) : 'Chưa có ngày'}</span>
+            <button type="button" class="to-date-edit-btn" title="Sửa ngày">✎</button>
+          </div>
+        </div>
+      `;
+    }
+
+    head.innerHTML = `
+      <div class="to-title-group" title="Khóa tổng: ${escapeHtml(info.KhoaTong || '')}">
+        <h3>${escapeHtml(info.TenTo)}</h3>
+        <div class="khoa-tong-label">Khóa tổng: ${escapeHtml(info.KhoaTong || '')}</div>
+      </div>
+      <div class="to-dates" style="--course-count:${Math.min(khoaKeys.length, 2)};">
+        ${khoaKeys.map(k => {
+          const labelBatDau = k === '_' ? 'Ngày bắt đầu' : `Bắt đầu ${k}`;
+          const labelKetThuc = k === '_' ? 'Ngày kết thúc' : `Kết thúc ${k}`;
+          return `<div class="to-dates-row">${dateFieldHtml(k, 'batDau', labelBatDau)}${dateFieldHtml(k, 'ketThuc', labelKetThuc)}</div>`;
+        }).join('')}
+      </div>
+    `;
+
+    async function saveOneField(khoa, loai, giaTriMoi){
+      if (!ngayTheoKhoa[khoa]) ngayTheoKhoa[khoa] = {};
+      ngayTheoKhoa[khoa][loai] = giaTriMoi;
+      const data = await callAdminApi({ action:'update_to_info', toId: info.ToId, ngayTheoKhoa: JSON.stringify(ngayTheoKhoa) });
+      if (data && data.success === false) alert('Lỗi: ' + data.error);
+    }
+
+    head.querySelectorAll('.to-date-edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const fieldEl = btn.closest('.to-date-field');
+        const khoa = fieldEl.dataset.khoa;
+        const loai = fieldEl.dataset.loai;
+        const displayEl = fieldEl.querySelector('.to-date-display');
+        const currentVal = (ngayTheoKhoa[khoa] && ngayTheoKhoa[khoa][loai]) || '';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = currentVal;
+        input.placeholder = 'vd: 15/08/2026';
+        displayEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const finishEdit = async (luu) => {
+          const giaTriMoi = input.value.trim();
+          if (luu && giaTriMoi !== currentVal) {
+            await saveOneField(khoa, loai, giaTriMoi);
+          }
+          openToDetail(info.ToId); // vẽ lại toàn bộ để đồng bộ hiển thị mới nhất
+        };
+        input.addEventListener('blur', () => finishEdit(true));
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') input.blur();
+          if (e.key === 'Escape'){ input.removeEventListener('blur', finishEdit); openToDetail(info.ToId); }
+        });
+      });
+    });
+
+    return khoaList;
+  }
+
+  function renderToDetailTable(students){
+    const body = document.getElementById('toDetailBody');
+    const emptyEl = document.getElementById('toDetailEmpty');
+    if (!students.length){ body.innerHTML = ''; emptyEl.style.display = 'block'; return; }
+    emptyEl.style.display = 'none';
+    const khoaList = [...new Set(students.map(s => s.Khoa).filter(k => k))];
+
+    body.innerHTML = students.map(s => {
+      const line1 = [], line2 = [];
+      if (s.TongQuangDuong < s.KmYeuCau) line1.push('Thiếu ' + (s.KmYeuCau - s.TongQuangDuong).toFixed(2) + 'km');
+      if (s.TongThoiGian < s.GioYeuCau) line1.push('Thiếu ' + fmtHoursShort(s.GioYeuCau - s.TongThoiGian));
+      if (s.GioDem < s.DemYeuCau) line2.push('Thiếu ' + fmtHoursShort(s.DemYeuCau - s.GioDem) + ' đêm');
+      if (s.TuDongYeuCau > 0 && s.GioTuDong < s.TuDongYeuCau) line2.push('Thiếu ' + fmtHoursShort(s.TuDongYeuCau - s.GioTuDong) + ' stđ');
+      const hoanThanh = line1.length === 0 && line2.length === 0;
+      const yeuCauHtml = hoanThanh ? 'Hoàn thành' : [line1.join(' · '), line2.join(' · ')].filter(l => l).join('<br>');
+      const rowColor = hoanThanh ? '' : getKhoaRowColor(khoaList, s.Khoa);
+      const rowStyle = rowColor ? ` style="background:${rowColor};"` : '';
+
+      return `
+        <tr class="${hoanThanh ? 'row-complete' : ''}"${rowStyle}>
+          <td class="num" data-label="Mã HV">${(s.MaDK||'').split('-').pop()}</td>
+          <td class="ho-ten-cell" data-label="Họ tên"><a class="hv-link" data-madk="${s.MaDK}" data-makh="${s.MaKhoaHoc||''}">${escapeHtml(s.HoTen || '')}</a></td>
+          <td data-label="Khóa">${escapeHtml(s.Khoa || '—')}</td>
+          <td class="num" data-label="Thời gian">${fmtHours(s.TongThoiGian)}</td>
+          <td class="num" data-label="Quãng đường">${s.TongQuangDuong.toFixed(2)} km</td>
+          <td class="num" data-label="Giờ đêm">${fmtHours(s.GioDem)}</td>
+          <td class="num" data-label="Giờ tự động">${s.TuDongYeuCau>0 ? fmtHours(s.GioTuDong) : '—'}</td>
+          <td class="yeucau-cell ${hoanThanh?'du':'thieu'}" data-label="Yêu cầu">${yeuCauHtml}</td>
+          <td data-label="Ghi chú"><input class="ghichu-input" value="${escapeHtml(s.GhiChu || '')}" data-madk="${s.MaDK}" placeholder="Ghi chú" /></td>
+          <td data-label="Tổ">
+            <select class="doito-select" data-madk="${s.MaDK}">
+              ${currentToOptions.map(t => `<option value="${escapeHtml(t.ToId)}" ${t.ToId===currentToId?'selected':''}>${escapeHtml(shortenTenTo(t.TenTo))}</option>`).join('')}
+              <option value="">— Chưa phân tổ —</option>
+            </select>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    body.querySelectorAll('.hv-link').forEach(a => {
+      a.addEventListener('click', async () => {
+        cameFromGv = null;
+        cameFromToId = currentToId;
+        switchTab('hv');
+        await loadCourses();
+        hvCourseSelect.value = a.dataset.makh || '';
+        hvStudentInput.value = a.textContent;
+        loadHvStudents().catch(() => {});
+        performHvSearch(a.dataset.madk);
+      });
+    });
+    body.querySelectorAll('.ghichu-input').forEach(inp => {
+      inp.addEventListener('change', async () => {
+        const data = await callAdminApi({ action:'update_meta', maDK: inp.dataset.madk, ghiChu: inp.value });
+        if (data && data.success === false) alert('Lỗi: ' + data.error);
+      });
+    });
+    body.querySelectorAll('.doito-select').forEach(sel => {
+      const toCuTruoc = sel.value;
+      sel.addEventListener('change', async () => {
+        const toMoi = sel.value;
+        if (toMoi === currentToId) return; // không đổi gì
+        const data = await callAdminApi({ action:'update_meta', maDK: sel.dataset.madk, to: toMoi });
+        if (!data || data.success === false){
+          if (data) alert('Lỗi: ' + data.error);
+          sel.value = toCuTruoc; // hủy nhập mật khẩu hoặc lỗi -> trả lại lựa chọn cũ
+          return;
+        }
+        openToDetail(currentToId); // tải lại danh sách (học viên vừa chuyển sẽ biến khỏi Tổ này)
+      });
+    });
+  }
+
+  /* ---------- Modal: Thêm danh sách chia tổ (Excel nhiều sheet) ---------- */
+  document.getElementById('openImportToExcel').addEventListener('click', () => importToExcelModal.classList.add('open'));
+  document.getElementById('cancelImportToExcel').addEventListener('click', () => importToExcelModal.classList.remove('open'));
+
+  function normalizeHeader(str){
+    return String(str || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').trim();
+  }
+  function findColumnValue(rowObj, keywords){
+    for (const key in rowObj){
+      const nk = normalizeHeader(key);
+      if (keywords.some(kw => nk.includes(kw))) return rowObj[key];
+    }
+    return '';
+  }
+
+  /** Đổi 1 ô ngày từ Excel (Date, số serial, hoặc chuỗi) về dạng "dd/mm/yyyy" như UI đang dùng */
+  function formatExcelDateCell(v){
+    if (v === undefined || v === null || v === '') return '';
+    if (v instanceof Date && !isNaN(v.getTime())){
+      const dd = String(v.getDate()).padStart(2, '0');
+      const mm = String(v.getMonth() + 1).padStart(2, '0');
+      const yyyy = v.getFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    if (typeof v === 'number'){
+      const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const yyyy = d.getUTCFullYear();
+      return `${dd}/${mm}/${yyyy}`;
+    }
+    return String(v).trim();
+  }
+
+  document.getElementById('submitImportToExcel').addEventListener('click', () => {
+    const fileInput = document.getElementById('toExcelFileInput');
+    const statusEl = document.getElementById('importToExcelStatus');
+    if (!fileInput.files.length){ statusEl.style.color='var(--behind)'; statusEl.textContent = 'Vui lòng chọn file Excel.'; return; }
+
+    const file = fileInput.files[0];
+    const khoaTong = file.name.replace(/\.(xlsx|xls)$/i, '');
+    statusEl.style.color = 'var(--ink-soft)'; statusEl.textContent = 'Đang đọc file...';
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true });
+        const toArray = workbook.SheetNames.map(sheetName => {
+          const ws = workbook.Sheets[sheetName];
+          const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+
+          // Dò tất cả ô trong sheet tìm mẫu "C1-K69", "B-K68", "B01-K57"... để suy ra
+          // Hạng đào tạo (C1/B/B01) tương ứng với từng Khóa con (K69, K70...).
+          const rawRows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
+          const subKhoaHangMap = {};
+          rawRows.forEach(row => row.forEach(cell => {
+            if (typeof cell !== 'string') return;
+            const matches = cell.match(/(B\.?01|B|C1)-K(\d+)/gi) || [];
+            matches.forEach(m => {
+              const mm = m.match(/(B\.?01|B|C1)-K(\d+)/i);
+              if (mm) subKhoaHangMap['K' + mm[2]] = mm[1].toUpperCase().replace(/\./g, '');
+            });
+          }));
+
+          // Dò ô tiêu đề "Ngày bắt đầu {Hạng}-K{số}" / "Ngày kết thúc {Hạng}-K{số}" — ngày thật
+          // nằm ở ô ngay bên dưới, cùng cột. Kết quả dùng để tự điền sẵn ngày cho từng Khóa con,
+          // admin vẫn sửa lại được bình thường sau khi nhập.
+          const ngayTheoKhoa = {};
+          rawRows.forEach((row, rIdx) => {
+            row.forEach((cell, cIdx) => {
+              if (typeof cell !== 'string') return;
+              const isBatDau = /b[ắă]t\s*đ[ầâ]u/i.test(cell);
+              const isKetThuc = /k[ếe]t\s*th[uú]c/i.test(cell);
+              if (!isBatDau && !isKetThuc) return;
+              const km = cell.match(/K\s*(\d+)/i);
+              if (!km) return;
+              const khoa = 'K' + km[1];
+              const nextRow = rawRows[rIdx + 1] || [];
+              const valStr = formatExcelDateCell(nextRow[cIdx]);
+              if (!valStr) return;
+              if (!ngayTheoKhoa[khoa]) ngayTheoKhoa[khoa] = {};
+              if (isBatDau) ngayTheoKhoa[khoa].batDau = valStr; else ngayTheoKhoa[khoa].ketThuc = valStr;
+            });
+          });
+
+          const students = rows
+            .map(r => {
+              const subKhoa = String(findColumnValue(r, ['stt']) || '').trim();
+              return {
+                maDK: String(findColumnValue(r, ['ma'])).trim(),
+                hoTen: String(findColumnValue(r, ['ho ten'])).trim(),
+                subKhoa: subKhoa,
+                hang: subKhoaHangMap[subKhoa] || '',
+                ghiChu: String(findColumnValue(r, ['ghi chu']) || '').trim()
+              };
+            })
+            .filter(s => s.maDK && (/^\d/.test(s.maDK.replace(/[^0-9a-zA-Z]/,'')) === true || s.maDK.includes('-')));
+          return { tenTo: sheetName, students, ngayTheoKhoa };
+        }).filter(t => t.students.length);
+
+        if (!toArray.length){
+          statusEl.style.color='var(--behind)'; statusEl.textContent = 'Không đọc được dữ liệu học viên nào trong các sheet.'; return;
+        }
+
+        statusEl.style.color='var(--ink-soft)'; statusEl.textContent = `Đang nhập ${toArray.length} tổ...`;
+        const data = await callAdminApi({ action:'import_to_excel_batch', khoaTong, toArray });
+        if (!data){ statusEl.textContent=''; return; }
+
+        if (data.success){
+          statusEl.style.color='var(--ok)';
+          statusEl.textContent = `Đã nhập Khóa tổng "${data.khoaTong}": ${data.soToMoiTao} tổ mới, ${data.soHocVienCapNhat} học viên cập nhật, ${data.soHocVienTaoMoi} học viên tạo mới.`;
+          await loadKhoaTongList();
+          setTimeout(() => { importToExcelModal.classList.remove('open'); statusEl.textContent=''; fileInput.value=''; }, 2500);
+        } else {
+          statusEl.style.color='var(--behind)'; statusEl.textContent = 'Lỗi: ' + data.error;
+        }
+      } catch (err){
+        statusEl.style.color='var(--behind)'; statusEl.textContent = 'Lỗi đọc file: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
+  /* ================== TAB: THEO HỌC VIÊN ================== */
+  let currentHvStudents = [];
+  let currentHvMaDK = '';
+  let pendingHvMaDK = '';
+
+  let hvCourseRequest = 0;
+  let hvDetailRequest = 0;
+  async function loadHvStudents(){
+    const request = ++hvCourseRequest;
+    const ma = hvCourseSelect.value;
+    hvStudentDropdown.classList.remove('open'); currentHvStudents = [];
+    if (!ma){ hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Chọn khóa học trước...'; return; }
+    hvStudentInput.disabled = true; hvStudentInput.placeholder = 'Đang tải danh sách học viên...';
+    try {
+      const res = await fetchFresh(`${WEB_APP_URL}?action=student_options&maKhoaHoc=${encodeURIComponent(ma)}`);
+      const list = await res.json();
+      if (request !== hvCourseRequest) return;
+      currentHvStudents = list;
+      hvStudentInput.disabled = false; hvStudentInput.placeholder = 'Gõ tên học viên...';
+    } catch(err){
+      if (request === hvCourseRequest) hvStudentInput.placeholder = 'Lỗi tải dữ liệu — bấm Thử lại';
+      throw err;
+    }
+  }
+  hvCourseSelect.addEventListener('change', () => {
+    hvDetailRequest++; currentHvMaDK = ''; pendingHvMaDK = ''; hvStudentInput.value = ''; hvResult.innerHTML = '';
+    resetImageLoading();
+    loadHvStudents().catch(() => {});
+  });
+
+  function normalizeVN(str){ return normalizeHeader(str); }
+
+  function renderHvSuggestions(){
+    const q = normalizeVN(hvStudentInput.value.trim());
+    const matches = q
+      ? currentHvStudents.filter(s => normalizeVN(s.HoTen).includes(q) || (s.MaDK||'').toLowerCase().includes(q))
+      : currentHvStudents;
+    if (!matches.length){
+      hvStudentDropdown.innerHTML = `<div style="color:var(--ink-soft);cursor:default;">Không tìm thấy học viên nào</div>`;
+    } else {
+      hvStudentDropdown.innerHTML = matches.map(s => `
+        <div data-madk="${s.MaDK}">${escapeHtml(s.HoTen || '(chưa rõ tên)')}<span class="num" style="color:#8a938d;font-size:11px;"> · ${escapeHtml(s.NgaySinh || '—')}</span></div>
+      `).join('');
+      hvStudentDropdown.querySelectorAll('div[data-madk]').forEach(div => {
+        div.addEventListener('click', () => {
+          const student = currentHvStudents.find(s => s.MaDK === div.dataset.madk);
+          hvStudentInput.value = student.HoTen || student.MaDK;
+          hvStudentDropdown.classList.remove('open');
+          cameFromGv = null;
+          cameFromToId = ''; // tra cứu trực tiếp, không phải từ Tổ
+          pendingHvMaDK = student.MaDK;
+          hvDetailRequest++; currentHvMaDK = ''; hvResult.innerHTML = '';
+        });
+      });
+    }
+    hvStudentDropdown.classList.add('open');
+  }
+  hvStudentInput.addEventListener('input', () => { pendingHvMaDK = ''; hvDetailRequest++; currentHvMaDK = ''; hvResult.innerHTML = ''; renderHvSuggestions(); });
+  hvStudentInput.addEventListener('focus', () => { if (currentHvStudents.length) renderHvSuggestions(); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('#hvStudentWrap')) hvStudentDropdown.classList.remove('open'); });
+
+  document.getElementById('hvSearchBtn').addEventListener('click', async () => {
+    const value = hvStudentInput.value.trim();
+    let student = currentHvStudents.find(s => s.MaDK === pendingHvMaDK && value === String(s.HoTen || s.MaDK));
+    if (!student && value) {
+      const matches = currentHvStudents.filter(s => String(s.MaDK) === value || normalizeVN(s.HoTen || '') === normalizeVN(value));
+      if (matches.length === 1) student = matches[0];
+    }
+    if (!student) { alert('Vui lòng chọn một học viên trong danh sách trước khi tra cứu.'); return; }
+    cameFromGv = null; cameFromToId = '';
+    hvStudentInput.value = student.HoTen || student.MaDK;
+    hvStudentDropdown.classList.remove('open');
+    const button = document.getElementById('hvSearchBtn');
+    button.disabled = true;
+    try { await performHvSearch(student.MaDK); } finally { button.disabled = false; }
+  });
+
+  async function performHvSearch(maDK){
+    if (!maDK) return;
+    const request = ++hvDetailRequest;
+    currentHvMaDK = maDK; pendingHvMaDK = maDK;
+    resetImageLoading();
+    hvResult.innerHTML = '<div class="empty-state">Đang tải...</div>';
+    try {
+      const res = await fetchFresh(`${WEB_APP_URL}?action=student_detail&maDK=${encodeURIComponent(maDK)}`);
+      const data = await res.json();
+      if (request !== hvDetailRequest) return;
+      renderHvResult(data.student, data.sessions || []);
+    } catch(err){
+      if (request === hvDetailRequest) hvResult.innerHTML = '<div class="empty-state">Không tải được học viên. Bấm Thử lại ở phía trên.</div>';
+    }
+  }
+
+  function renderHvResult(s, sessions){
+    const backWrap = document.getElementById('hvBackWrap');
+    backWrap.innerHTML = cameFromGv
+      ? '<button class="back-btn" id="backToGvBtn">◀ Quay về DAT THEO NGÀY</button>'
+      : cameFromToId ? `<button class="back-btn" id="backToToBtn">◀ Quay lại Tổ (${escapeHtml(toIdDisplayName(cameFromToId))})</button>` : '';
+    const backBtn = document.getElementById('backToToBtn');
+    if (backBtn) backBtn.addEventListener('click', () => { switchTab('to'); openToDetail(cameFromToId); });
+    const backGv = document.getElementById('backToGvBtn');
+    if (backGv) backGv.addEventListener('click', async () => {
+      const target = cameFromGv;
+      if (!target) return;
+      gvNgaySelect.value = target.day;
+      gvCourseSelect.value = target.course;
+      renderGvTeacherOptions(target.teacher);
+      skipGvTabRefresh = true;
+      try { switchTab('gv'); } finally { skipGvTabRefresh = false; }
+      await loadGvSessions();
+      const wrap = gvResult.querySelector('.table-wrap');
+      if (wrap) wrap.scrollLeft = target.scrollLeft;
+      window.scrollTo(0,target.scrollY);
+    });
+
+    if (!s){ hvResult.innerHTML = '<div class="empty-state">Không tìm thấy dữ liệu học viên.</div>'; return; }
+
+    const latestWithPhoto = sessions.find(sess => sess.Srcdn);
+    const fallbackPath = latestWithPhoto ? latestWithPhoto.Srcdn : '';
+    let avatarAttrs = '';
+    if (s.AnhThe) avatarAttrs = `data-drive="${escapeHtml(s.AnhThe)}"`;
+    else if (fallbackPath) avatarAttrs = `data-path="${escapeHtml(fallbackPath)}"`;
+
+    hvResult.innerHTML = `
+      <div class="hv-card">
+        <div class="hv-head">
+          <div class="hv-head-left">
+            <div class="hv-avatar"><img class="lazy-img" src="logo.png" ${avatarAttrs} alt="Ảnh chân dung" /></div>
+            <div class="hv-identity">
+              <h2>${escapeHtml(s.HoTen || '')}</h2>
+              <div class="hv-info-line"><b>Mã HV:</b>${s.MaDK}</div>
+              <div class="hv-info-line"><b>Ngày sinh:</b>${s.NgaySinh || '—'}</div>
+              <div class="hv-info-line"><b>Khóa:</b>${escapeHtml(s.KhoaHoc || '—')}</div>
+            </div>
+          </div>
+          <div class="hv-head-actions" style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
+            <span class="status-pill ${s.DuDieuKien?'ok':'pending'}" style="font-size:12.5px;padding:5px 12px;border-radius:12px;font-weight:700;${s.DuDieuKien?'background:var(--ok-bg);color:var(--ok);':'background:#FBEEDA;color:#93611C;'}">${s.DuDieuKien?'ĐỦ ĐIỀU KIỆN':'CHƯA ĐỦ ĐIỀU KIỆN'}</span>
+            ${s.To ? `<button class="add-course-btn secondary" id="viewToBtn" style="font-size:12px;padding:8px 14px;">📋 Xem danh sách Tổ</button>` : ''}
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--ink-soft);margin-bottom:10px;">Cập nhật lúc: ${s.CapNhatLuc ? escapeHtml(formatDate(s.CapNhatLuc)) : 'Chưa có số liệu tổng hợp'}</div>
+        <div class="stat-grid">
+          ${statCard('Quãng đường', s.TongQuangDuong.toFixed(2)+' km', s.ConThieuKm, s.ConThieuKm.toFixed(2)+' km')}
+          ${statCard('Thời gian', fmtHours(s.TongThoiGian), s.ConThieuGioPhut, fmtHours(s.ConThieuGioPhut*60))}
+          ${statCard('Giờ đêm', fmtHours(s.GioDem), s.ConThieuDemPhut, fmtHours(s.ConThieuDemPhut*60))}
+          ${s.TuDongYeuCau>0 ? statCard('Giờ xe tự động', fmtHours(s.GioTuDong), s.ConThieuTuDongPhut, fmtHours(s.ConThieuTuDongPhut*60)) : '<div class="stat-card"><div class="n">—</div><div class="l">Không yêu cầu xe tự động</div></div>'}
+        </div>
+        <div class="sess-list">
+          ${sessions.length ? sessions.map((sess, i) => sessionItem(sess, sessions.length - i)).join('') : '<div class="empty-state">Chưa có phiên học nào.</div>'}
+        </div>
+      </div>
+    `;
+
+    const viewToBtn = document.getElementById('viewToBtn');
+    if (viewToBtn) viewToBtn.addEventListener('click', () => { switchTab('to'); openToDetail(s.To); });
+
+    hvResult.querySelectorAll('img.lazy-img').forEach(img => {
+      observeLazyImage(img);
+      img.addEventListener('click', () => { if (img.dataset.full){ lightboxImg.src = img.dataset.full; lightbox.classList.add('open'); } });
+    });
+    bindSessionActions(hvResult, () => performHvSearch(currentHvMaDK));
+  }
+
+  function statCard(label, value, thieuVal, thieuText){
+    const isDu = thieuVal <= 0;
+    return `
+      <div class="stat-card ${isDu ? 'stat-complete' : ''}">
+        <div class="n num" style="color:${isDu ? 'var(--ok)' : 'var(--blue-deep)'};">${value}</div>
+        <div class="l">${label}</div>
+        ${!isDu ? `<div class="thieu">+ ${thieuText} còn thiếu</div>` : `<div class="du">✓ Đã đủ</div>`}
+      </div>
+    `;
+  }
+
+  function sessionNotes(sess){
+    return [sess.TransmissionError, sess.RuleErrors, sess.SessionManualNote,
+      sess.IsDeleted ? 'HUỶ: ' + (sess.DeleteReason || '(chưa ghi lý do)') : ''].filter(Boolean).join('\n');
+  }
+  function sessionActionButtons(sess){
+    const id = escapeHtml(String(sess.ID || ''));
+    return `<button type="button" class="session-note-btn" data-id="${id}" data-note="${escapeHtml(sess.SessionManualNote || '')}" title="Ghi chú lỗi" aria-label="Ghi chú lỗi">✎</button>
+      ${sess.IsDeleted ? `<button type="button" class="session-restore-btn" data-id="${id}" title="Khôi phục phiên">↺</button>` : ''}
+      <button type="button" class="session-cancel-btn" data-id="${id}" ${sess.IsDeleted ? 'disabled' : ''} title="Huỷ phiên học" aria-label="Huỷ phiên học">🗑</button>`;
+  }
+  function bindSessionActions(root, reload){
+    root.querySelectorAll('.session-cancel-btn,.session-restore-btn,.session-note-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        let body;
+        if (btn.classList.contains('session-cancel-btn')) {
+          const reason = prompt('Nhập lỗi hoặc lý do HUỶ phiên (bắt buộc):');
+          if (reason === null) return;
+          if (!reason.trim()) { alert('Phải nhập lỗi hoặc lý do huỷ phiên.'); return; }
+          body = {action:'delete_session', id:btn.dataset.id, reason:reason.trim()};
+        } else if (btn.classList.contains('session-note-btn')) {
+          const note = prompt('Ghi chú lỗi của phiên; để trống để xoá ghi chú do Admin nhập:',btn.dataset.note || '');
+          if (note === null) return;
+          body = {action:'update_session_note', id:btn.dataset.id, note:note.trim()};
+        } else {
+          if (!confirm('Khôi phục phiên học này?')) return;
+          body = {action:'restore_session', id:btn.dataset.id};
+        }
+        btn.disabled = true;
+        try {
+          const data = await callAdminApi(body);
+          if (!data) return;
+          if (!data.success) throw new Error(data.error || 'Không cập nhật được phiên.');
+          await reload();
+        } catch(error) { alert('Lỗi cập nhật phiên: ' + error.message); }
+        finally { btn.disabled = false; }
+      });
+    });
+  }
+
+  function sessionItem(sess, soThuTu){
+    const hasDn = !!sess.Srcdn, hasDx = !!sess.Srcdx;
+    const deletedClass = sess.IsDeleted ? ' sess-deleted' : '';
+    const transmissionClass = !sess.IsDeleted && sessionNotes(sess) ? ' sess-transmission-error' : '';
+    return `
+      <div class="sess-item${deletedClass}${transmissionClass}">
+        <div class="sess-num">${soThuTu}</div>
+        <div class="date">
+          <div>Vào: ${formatDate(sess.ThoiDiemDangNhap)}</div>
+          <div>Ra: &nbsp;${formatDate(sess.ThoiDiemDangXuat)}</div>
+        </div>
+        <div class="meta">
+          <div>GV: <b>${escapeHtml(sess.HoTenGV || '—')}</b></div>
+          <div>Xe: <b>${escapeHtml(sess.BienSo || '—')}</b></div>
+          <div class="tags">
+            ${sess.LaDem ? '<span class="tag dem">Giờ đêm</span>' : ''}
+            ${sess.LaXeTuDong ? '<span class="tag auto">Xe tự động</span>' : ''}
+          </div>
+          ${sessionNotes(sess) ? `<div class="transmission-note">${escapeHtml(sessionNotes(sess))}</div>` : ''}
+        </div>
+        <div class="figures num"><div>${fmtHours(sess.TongThoiGian)}</div><div>${Number(sess.TongQuangDuong).toFixed(2)} km</div></div>
+        <div class="sess-thumbs">
+          ${hasDn ? `<img class="lazy-img" src="logo.png" data-path="${escapeHtml(sess.Srcdn)}" alt="Ảnh đăng nhập" />` : ''}
+          ${hasDx ? `<img class="lazy-img" src="logo.png" data-path="${escapeHtml(sess.Srcdx)}" alt="Ảnh đăng xuất" />` : ''}
+          ${sessionActionButtons(sess)}
+        </div>
+      </div>
+    `;
+  }
+
+  // Chỉ tải ảnh gần vùng nhìn thấy, tối đa 3 yêu cầu cùng lúc.
+  const imageQueue = [];
+  const imageCache = new Map();
+  let activeImages = 0;
+  const imageObserver = typeof IntersectionObserver !== 'undefined'
+    ? new IntersectionObserver(entries => {
+        entries.forEach(entry => { if (entry.isIntersecting){ imageObserver.unobserve(entry.target); queueImage(entry.target); } });
+      }, { rootMargin:'120px' }) : null;
+  function resetImageLoading(){ if (imageObserver) imageObserver.disconnect(); imageQueue.length = 0; }
+  function observeLazyImage(img){
+    if (!img.dataset.path && !img.dataset.drive) return;
+    if (imageObserver) imageObserver.observe(img); else queueImage(img);
+  }
+  function queueImage(img){
+    if (img.dataset.queued) return;
+    img.dataset.queued = '1'; imageQueue.push(img); pumpImages();
+  }
+  function pumpImages(){
+    while (activeImages < 3 && imageQueue.length){
+      const img = imageQueue.shift();
+      if (!img.isConnected) continue;
+      activeImages++;
+      loadLazyImage(img).finally(() => { activeImages--; pumpImages(); });
+    }
+  }
+  async function loadLazyImage(imgEl){
+    const path = imgEl.dataset.path, driveUrl = imgEl.dataset.drive;
+    const apiUrl = path ? `${WEB_APP_URL}?action=image_base64&path=${encodeURIComponent(path)}` :
+      `${WEB_APP_URL}?action=photo_base64&url=${encodeURIComponent(driveUrl)}`;
+    try {
+      let full = imageCache.get(apiUrl);
+      if (!full){
+        const data = await requestJson(apiUrl,20000);
+        if (!data.success) throw new Error(data.error || 'Không tải được ảnh');
+        full = `data:${data.mimeType};base64,${data.base64}`;
+        if (imageCache.size >= 60) imageCache.delete(imageCache.keys().next().value);
+        imageCache.set(apiUrl,full);
+      }
+      if (imgEl.isConnected){ imgEl.src = full; imgEl.dataset.full = full; imgEl.title = imgEl.alt; }
+    } catch(err){
+      imgEl.title = 'Ảnh chưa tải được. Bấm ảnh để thử lại.';
+      imgEl.addEventListener('click', () => { delete imgEl.dataset.queued; queueImage(imgEl); }, {once:true});
+    }
+  }
+
+  /* ---------- Modal thêm khóa học (kèm ảnh chân dung nếu có) ---------- */
+  document.getElementById('openAddCourse').addEventListener('click', () => addCourseModal.classList.add('open'));
+  document.getElementById('cancelAddCourse').addEventListener('click', () => addCourseModal.classList.remove('open'));
+
+  async function uploadPhotosFromZip(zipFile, statusEl){
+    const zip = await JSZip.loadAsync(zipFile);
+    const imageFiles = Object.values(zip.files).filter(f => !f.dir && /\.(jpe?g)$/i.test(f.name));
+    if (!imageFiles.length){ statusEl.textContent += '\n(Không tìm thấy ảnh JPG nào trong file zip.)'; return; }
+    let thanhCong = 0;
+    for (let i = 0; i < imageFiles.length; i++){
+      const entry = imageFiles[i];
+      const maDK = entry.name.split('/').pop().replace(/\.(jpe?g)$/i, '');
+      statusEl.textContent = `Đang tải ảnh ${i+1}/${imageFiles.length}: ${maDK}...`;
+      try {
+        const base64Data = await entry.async('base64');
+        const data = await callAdminApi({ action:'upload_photo', maDK, base64Data });
+        if (!data) return;
+        if (data.success) thanhCong++;
+      } catch (err){ /* bỏ qua */ }
+    }
+    statusEl.textContent = `Đã cập nhật ${thanhCong}/${imageFiles.length} ảnh chân dung.`;
+  }
+
+  document.getElementById('submitAddCourse').addEventListener('click', () => {
+    const fileInput = document.getElementById('xmlFileInput');
+    const statusEl = document.getElementById('uploadStatus');
+    if (!fileInput.files.length){ statusEl.textContent = 'Vui lòng chọn file XML.'; return; }
+    statusEl.style.color = 'var(--ink-soft)'; statusEl.textContent = 'Đang xử lý...';
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const data = await callAdminApi({ action:'upload_xml', xmlText: reader.result });
+        if (!data) { statusEl.textContent = ''; return; }
+        if (data.success){
+          statusEl.style.color = 'var(--ok)';
+          statusEl.textContent = `Đã tạo khóa "${data.tenKhoaHoc}" — thêm mới ${data.soHocVienMoiThem}/${data.tongSoHocVienTrongFile} học viên.`;
+          await loadCourses();
+          setTimeout(() => { addCourseModal.classList.remove('open'); statusEl.textContent=''; fileInput.value=''; }, 2500);
+        } else {
+          statusEl.style.color = 'var(--behind)'; statusEl.textContent = 'Lỗi: ' + data.error;
+        }
+      } catch (err){
+        statusEl.style.color = 'var(--behind)'; statusEl.textContent = 'Lỗi kết nối: ' + err.message;
+      }
+    };
+    reader.readAsText(fileInput.files[0], 'UTF-8');
+  });
+
+  /* ---------- Cập nhật ảnh chân dung (nay là 1 phần trong modal "+ Thêm khóa học") ---------- */
+
+  const missingPhotoModal = document.getElementById('missingPhotoModal');
+  let missingPhotoData = [];
+  document.getElementById('openMissingPhoto').addEventListener('click', async () => {
+    addCourseModal.classList.remove('open');
+    missingPhotoModal.classList.add('open');
+    const statusEl = document.getElementById('missingPhotoStatus');
+    const listEl = document.getElementById('missingPhotoList');
+    statusEl.textContent = 'Đang tải...';
+    listEl.innerHTML = '';
+    try {
+      const res = await fetchFresh(`${WEB_APP_URL}?action=missing_photo`);
+      missingPhotoData = await res.json();
+      if (!missingPhotoData.length) {
+        statusEl.textContent = 'Tất cả học viên đều đã có ảnh chân dung 🎉';
+        return;
+      }
+      statusEl.textContent = `${missingPhotoData.length} học viên chưa có ảnh, gộp theo khóa học:`;
+      const byKhoa = {};
+      missingPhotoData.forEach(s => {
+        const k = s.MaKhoaHoc || '(Chưa rõ khóa học)';
+        if (!byKhoa[k]) byKhoa[k] = [];
+        byKhoa[k].push(s);
+      });
+      listEl.innerHTML = Object.keys(byKhoa).map(khoa => `
+        <div style="margin-bottom:10px;">
+          <div style="font-weight:700; font-size:13px; margin-bottom:4px;">${escapeHtml(khoa)} (${byKhoa[khoa].length})</div>
+          ${byKhoa[khoa].map(s => `<div style="font-size:12.5px; color:var(--ink-soft); padding:2px 0;">${escapeHtml(s.MaDK)} — ${escapeHtml(s.HoTen)}</div>`).join('')}
+        </div>
+      `).join('');
+    } catch (err) {
+      statusEl.textContent = 'Lỗi tải danh sách: ' + err.message;
+    }
+  });
+  document.getElementById('closeMissingPhoto').addEventListener('click', () => missingPhotoModal.classList.remove('open'));
+  document.getElementById('copyMissingPhoto').addEventListener('click', () => {
+    if (!missingPhotoData.length) return;
+    const text = missingPhotoData.map(s => `${s.MaDK}\t${s.HoTen}`).join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Đã sao chép ' + missingPhotoData.length + ' mã học viên vào clipboard.');
+    }).catch(() => {
+      alert('Không sao chép được, trình duyệt chặn quyền clipboard.');
+    });
+  });
+
+  function readFileAsBase64(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  document.getElementById('submitUploadPhoto').addEventListener('click', async () => {
+    const fileInput = document.getElementById('photoFilesInput');
+    const statusEl = document.getElementById('uploadPhotoStatus');
+    const files = Array.from(fileInput.files);
+    if (!files.length){ statusEl.style.color = 'var(--behind)'; statusEl.textContent = 'Vui lòng chọn ít nhất 1 file ảnh.'; return; }
+    let thanhCong = 0, thatBai = [];
+    for (let i = 0; i < files.length; i++){
+      const file = files[i];
+      const maDK = file.name.replace(/\.[^.]+$/, '');
+      statusEl.style.color = 'var(--ink-soft)';
+      statusEl.textContent = `Đang tải ${i+1}/${files.length}: ${file.name}...`;
+      try {
+        const base64Data = await readFileAsBase64(file);
+        const data = await callAdminApi({ action:'upload_photo', maDK, base64Data });
+        if (!data){ statusEl.textContent = 'Đã hủy.'; return; }
+        if (data.success) thanhCong++; else thatBai.push(`${file.name}: ${data.error}`);
+      } catch (err){ thatBai.push(`${file.name}: ${err.message}`); }
+    }
+    statusEl.style.color = thatBai.length ? 'var(--behind)' : 'var(--ok)';
+    statusEl.innerHTML = `Đã cập nhật ${thanhCong}/${files.length} ảnh.` + (thatBai.length ? `<br>Lỗi:<br>` + thatBai.join('<br>') : '');
+    if (thanhCong > 0 && currentHvMaDK) performHvSearch(currentHvMaDK);
+    if (!thatBai.length){ setTimeout(() => { statusEl.textContent=''; fileInput.value=''; }, 2000); }
+  });
+
+  /* ---------- Tiện ích ---------- */
+  function fmtHours(seconds){
+    seconds = Math.max(0, Math.round(Number(seconds) || 0));
+    const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60);
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+  /** Dạng gọn "24h" hoặc "2.5h" — dùng cho cột Yêu cầu */
+  function fmtHoursShort(seconds){
+    const h = Math.round((Number(seconds) || 0) / 360) / 10; // làm tròn 1 chữ số thập phân
+    return (Number.isInteger(h) ? h : h.toFixed(1)) + 'h';
+  }
+  /** "Tổ 2-Thầy Kha-51497" -> "Tổ 2" (chỉ dùng để hiển thị trong dropdown, không đổi giá trị lưu) */
+  function shortenTenTo(tenTo){
+    const m = String(tenTo || '').match(/^(t[ổôo]\s*\d+)/i);
+    return m ? m[1] : tenTo;
+  }
+  /** "Khóa tổng::Tên Tổ" -> "Tên Tổ" (ToId là khóa nội bộ, không nên hiện nguyên dạng cho người dùng) */
+  function toIdDisplayName(toId){
+    const s = String(toId || '');
+    return s.includes('::') ? s.split('::').pop() : s;
+  }
+  function formatDate(iso){
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d)) return iso;
+    return d.toLocaleString('vi-VN', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  document.getElementById('lightboxClose').addEventListener('click', () => lightbox.classList.remove('open'));
+  lightbox.addEventListener('click', (e) => { if (e.target === lightbox) lightbox.classList.remove('open'); });
+
+
+  async function refreshActiveView(){
+    invalidateDataCache(); imageCache.clear();
+    document.getElementById('requestNotice').style.display = 'none';
+    const btn = document.getElementById('refreshDataBtn'); btn.disabled = true;
+    try {
+      const active = document.querySelector('.tab-btn.active');
+      const tab = active ? active.dataset.tab : 'to';
+      if (tab === 'hv'){
+        await loadCourses(); await loadHvStudents();
+        if (currentHvMaDK) await performHvSearch(currentHvMaDK);
+      } else if (tab === 'gv'){
+        const teacher = gvTeacherSelect.value;
+        await loadGvTeachers(true);
+        if ([...gvTeacherSelect.options].some(o => o.value === teacher) && teacher){
+          gvTeacherSelect.value = teacher; document.getElementById('gvSearchBtn').click();
+        }
+      } else {
+        await loadKhoaTongList();
+        if (document.getElementById('toDetailView').style.display !== 'none' && currentToId) await openToDetail(currentToId);
+        else if (document.getElementById('toGridView').style.display !== 'none' && currentKhoaTong) await openKhoaTongGrid(currentKhoaTong);
+      }
+    } catch(err){ showRequestError(err); } finally { btn.disabled = false; }
+  }
+  document.getElementById('refreshDataBtn').addEventListener('click', refreshActiveView);
+  // Chỉ làm mới chi tiết đang xem, khi trang hiển thị; không tạo trigger máy chủ.
+  let automaticDetailRefreshBusy = false;
+  setInterval(async () => {
+    if (document.visibilityState !== 'visible' || automaticDetailRefreshBusy || lightbox.classList.contains('open')) return;
+    const active = document.querySelector('.tab-btn.active');
+    if (!active) return;
+    automaticDetailRefreshBusy = true;
+    try {
+      if (active.dataset.tab === 'hv' && currentHvMaDK) await performHvSearch(currentHvMaDK);
+      else if (active.dataset.tab === 'gv' && gvTeacherSelect.value && gvResult.querySelector('table.gv-table')) await loadGvSessions();
+    } finally { automaticDetailRefreshBusy = false; }
+  }, 15 * 60 * 1000);
+
+  // Không để lỗi kết nối bị bỏ sót ở các thao tác mở khóa/tổ.
+  const originalOpenToDetail = openToDetail;
+  openToDetail = async function(...args){ try { return await originalOpenToDetail(...args); } catch(err){ showRequestError(err); document.getElementById('toDetailHead').textContent = 'Không tải được dữ liệu tổ. Bấm Thử lại.'; } };
+  const originalOpenKhoaTongGrid = openKhoaTongGrid;
+  openKhoaTongGrid = async function(...args){ try { return await originalOpenKhoaTongGrid(...args); } catch(err){ showRequestError(err); document.getElementById('toGrid').textContent = 'Không tải được danh sách tổ. Bấm Thử lại.'; } };
+  const originalLoadCourses = loadCourses;
+  loadCourses = async function(...args){ try { return await originalLoadCourses(...args); } catch(err){ showRequestError(err); } };
+  updateLockUI();
+</script>
+
+</body>
+</html>
